@@ -1,0 +1,1 @@
+ffmpeg -f lavfi -i anullsrc -t 60 -ar 44100 output.flac

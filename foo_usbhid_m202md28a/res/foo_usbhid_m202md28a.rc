@@ -1,0 +1,157 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Chinese (Simplified, PRC) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Chinese (Simplified, PRC) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_PREFERENCES DIALOGEX 0, 0, 332, 288
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD
+FONT 8, "MS Shell Dlg", 400, 0, 0x0
+BEGIN
+    EDITTEXT        IDC_TX_VID,37,20,40,12,ES_CENTER | ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_PID,37,37,40,12,ES_CENTER | ES_AUTOHSCROLL
+    COMBOBOX        IDC_CB_POWER_PLAY,153,19,56,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_CB_POWER_PAUSE,257,19,56,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_CB_POWER_STOP,153,36,56,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    COMBOBOX        IDC_CB_POWER_EXIT,257,36,56,30,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT        IDC_TX_PLAY_FORMAT1,80,72,235,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_PLAY_FORMAT2,80,89,235,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_LOAD_STRING1,81,125,235,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_LOAD_STRING2,81,141,235,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_STOP_STRING1,81,178,235,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_STOP_STRING2,81,194,235,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_VOLUME_STRING2,62,235,52,12,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_VOLUME_HOLD_STRING,62,255,38,12,ES_CENTER | ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_FADEIN_STRING,191,231,33,12,ES_CENTER | ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_SCROLL_WAIT_STRING,191,246,33,12,ES_CENTER | ES_AUTOHSCROLL
+    EDITTEXT        IDC_TX_SCROLL_STRING,191,261,33,12,ES_CENTER | ES_AUTOHSCROLL
+    PUSHBUTTON      "RESET",IDC_BT_FROM_RESET,264,234,50,14
+    PUSHBUTTON      "WRITE",IDC_BT_FROM_WRITE,264,254,50,14
+    GROUPBOX        "HID setting",IDC_STATIC,7,7,77,50
+    LTEXT           "VID:",IDC_STATIC,16,21,15,8
+    LTEXT           "PID:",IDC_STATIC,16,38,15,8
+    GROUPBOX        "Power setting",IDC_STATIC,106,7,219,50
+    LTEXT           "On play:",IDC_STATIC,116,20,28,8
+    LTEXT           "On pause:",IDC_STATIC,217,20,34,8
+    LTEXT           "On stop:",IDC_STATIC,116,38,29,8
+    LTEXT           "On exit:",IDC_STATIC,224,38,27,8
+    GROUPBOX        "On play",IDC_STATIC,7,59,318,50
+    LTEXT           "Line1 formatting:",IDC_STATIC,16,73,56,8
+    LTEXT           "Line2 formatting:",IDC_STATIC,16,90,56,8
+    GROUPBOX        "On load",IDC_STATIC,7,112,318,50
+    LTEXT           "Line1 string:",IDC_STATIC,17,126,40,8
+    LTEXT           "Line2 string:",IDC_STATIC,17,142,40,8
+    GROUPBOX        "On stop",IDC_STATIC,7,165,318,50
+    LTEXT           "Line1 string:",IDC_STATIC,17,179,40,8
+    LTEXT           "Line2 string:",IDC_STATIC,17,195,40,8
+    GROUPBOX        "On volume change",IDC_STATIC,7,218,119,61
+    LTEXT           "Line2 string:",IDC_STATIC,19,236,40,8
+    LTEXT           "Display hold:",IDC_STATIC,17,256,42,8
+    GROUPBOX        "Line1 scroll control",IDC_STATIC,135,218,110,61
+    LTEXT           "Fadein speed:",IDC_STATIC,143,232,46,8
+    LTEXT           "Scroll wait:",IDC_STATIC,153,248,36,8
+    LTEXT           "Scroll speed:",IDC_STATIC,148,263,42,8
+    GROUPBOX        "FROM setting",IDC_STATIC,253,218,72,61
+    LTEXT           "ms",IDC_STATIC,230,232,10,8
+    LTEXT           "ms",IDC_STATIC,230,247,10,8
+    LTEXT           "ms",IDC_STATIC,230,262,10,8
+    LTEXT           "ms",IDC_STATIC,104,256,10,8
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_PREFERENCES, DIALOG
+    BEGIN
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_PREFERENCES AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
