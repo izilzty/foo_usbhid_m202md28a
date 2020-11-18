@@ -414,13 +414,14 @@ int DisplayThread::start(unsigned short vid, unsigned short pid)
 		}
 		else if (thread_data.status == -1)
 		{
-			OutputDebugStringA("Display thread exit\n");
+			OutputDebugStringA("Display thread start fail\n");
 			return -1;
 		}
 		else
 		{
 			if (timeout_counter >= 3000)
 			{
+				OutputDebugStringA("Display thread start fail\n");
 				return -1;
 			}
 			timeout_counter++;
@@ -445,6 +446,7 @@ int DisplayThread::stop(void)
 	{
 		if (timeout_counter >= 3000)
 		{
+			OutputDebugStringA("Display thread stop fail\n");
 			return -1;
 		}
 		timeout_counter++;
@@ -452,6 +454,7 @@ int DisplayThread::stop(void)
 	}
 	CloseHandle(thread_handle);
 	thread_handle = INVALID_HANDLE_VALUE;
+	OutputDebugStringA("Display thread exit\n");
 	return 0;
 }
 
@@ -510,7 +513,6 @@ void DisplayThread::on_playback_starting(play_control::t_track_command p_command
 	format_line2(cfg_onplay_format2);
 	thread_data.play_info.play_state = PLAY_STATE_LOADING;
 	thread_data.play_info.update_play_state = true;
-	OutputDebugStringA("LOADING\n");
 }
 
 void DisplayThread::on_playback_new_track(metadb_handle_ptr p_track)
@@ -522,7 +524,6 @@ void DisplayThread::on_playback_new_track(metadb_handle_ptr p_track)
 	thread_data.play_info.play_state = PLAY_STATE_PLAY;
 	thread_data.play_info.is_new_track = true;
 	thread_data.play_info.update_play_state = true;
-	OutputDebugStringA("New Track\n");
 }
 
 void DisplayThread::on_playback_stop(play_control::t_stop_reason p_reason)
@@ -531,7 +532,6 @@ void DisplayThread::on_playback_stop(play_control::t_stop_reason p_reason)
 	{
 		thread_data.play_info.play_state = PLAY_STATE_STOP;
 		thread_data.play_info.update_play_state = true;
-		OutputDebugStringA("STOP\n");
 	}
 }
 
@@ -540,12 +540,10 @@ void DisplayThread::on_playback_pause(bool p_state)
 	if (p_state == false)
 	{
 		thread_data.play_info.play_state = PLAY_STATE_PLAY;
-		OutputDebugStringA("PLAY\n");
 	}
 	else
 	{
 		thread_data.play_info.play_state = PLAY_STATE_PAUSE;
-		OutputDebugStringA("PAUSE\n");
 	}
 	thread_data.play_info.update_play_state = true;
 }
@@ -554,20 +552,17 @@ void DisplayThread::on_playback_edited(metadb_handle_ptr p_track)
 {
 	thread_data.play_info.is_new_track = true;
 	format_line1(cfg_onplay_format1);
-	OutputDebugStringA("UPDATE_LINE_1\n");
 }
 
 void DisplayThread::on_playback_time(double p_time)
 {
 	format_line2(cfg_onplay_format2);
-	OutputDebugStringA("TIME\n");
 }
 
 void DisplayThread::on_volume_change(float p_new_val)
 {
 	thread_data.play_info.volume = p_new_val;
 	thread_data.play_info.update_volume = true;
-	OutputDebugStringA("VOLUME\n");
 }
 
 unsigned int DisplayThread::get_flags(void)
