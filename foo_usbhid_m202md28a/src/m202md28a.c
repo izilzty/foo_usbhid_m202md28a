@@ -236,14 +236,18 @@ int8_t display_write_FROM(hid_device* device)
 	memset(from_data_ptr, 0xFF, sizeof(from_data));
 	memcpy(from_data_ptr, cmd_UserTableRegistAll, sizeof(cmd_UserTableRegistAll));
 	from_data_ptr += sizeof(cmd_UserTableRegistAll);
-	memcpy(from_data_ptr, FROM_icon_stop, sizeof(FROM_icon_stop));
+	memcpy(from_data_ptr, FROM_icon_stop, sizeof(FROM_icon_stop)); /* 0x80 */
 	from_data_ptr += sizeof(FROM_icon_stop);
-	memcpy(from_data_ptr, FROM_icon_play, sizeof(FROM_icon_play));
+	memcpy(from_data_ptr, FROM_icon_play, sizeof(FROM_icon_play)); /* 0x81 */
 	from_data_ptr += sizeof(FROM_icon_play);
-	memcpy(from_data_ptr, FROM_icon_pause, sizeof(FROM_icon_pause));
+	memcpy(from_data_ptr, FROM_icon_pause, sizeof(FROM_icon_pause)); /* 0x82 */
 	from_data_ptr += sizeof(FROM_icon_pause);
-	memcpy(from_data_ptr, FROM_icon_load, sizeof(FROM_icon_load));
+	memcpy(from_data_ptr, FROM_icon_load, sizeof(FROM_icon_load)); /* 0x83 */
 	from_data_ptr += sizeof(FROM_icon_load);
+
+	from_data_ptr += 12 * (15 * 16 / 8);
+	memcpy(from_data_ptr, FROM_icon_bar, sizeof(FROM_icon_bar)); /* 0x90 ~ 0x9F */
+	from_data_ptr += sizeof(FROM_icon_bar);
 
 	display_send_data(device, from_data, sizeof(from_data));
 	if (display_read_state(device) != 0x00)

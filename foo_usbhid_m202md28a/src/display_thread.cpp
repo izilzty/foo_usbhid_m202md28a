@@ -26,6 +26,26 @@
 #define SCROLL_DEFAULT_SPEED 300
 #define SCROLL_LINE1_SIZE LINE1_LEN
 
+/* https://github.com/reupen/columns_ui/blob/master/foo_ui_columns/vis_spectrum.cpp */
+t_size g_scale_value_single(double val, t_size count, bool b_log)
+{
+	double val_trans;
+	if (b_log) {
+		constexpr auto minimum_value = -4;
+		double log_val = val > 0 ? log10(val) : minimum_value;
+		if (log_val < minimum_value)
+			log_val = minimum_value;
+		val_trans = count * (log_val + -minimum_value) / -minimum_value;
+	}
+	else {
+		double start = (double)count * val;
+		val_trans = start;
+	}
+	t_size ret = pfc::rint32(val_trans);
+	ret = max(min(ret, count), 0);
+	return ret;
+}
+
 DWORD WINAPI main_display_thread(LPVOID lpParamter)
 {
 	hid_device* hid;
@@ -71,6 +91,11 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 	disable_display = false;
 	memset(scroll_str, '\0', sizeof(scroll_str));
 	volume_delay_count = 0;
+
+	service_ptr_t<visualisation_stream_v3> stream;
+	static_api_ptr_t<visualisation_manager> m;
+
+	m->create_stream(stream, visualisation_manager::KStreamFlagNewFFT);
 
 	while (thread_data->stop == 0)
 	{
@@ -363,6 +388,39 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 				Sleep(100);
 			}
 		}
+
+		double samplerate;
+		double abs_time;
+		audio_sample peak_val;
+		audio_chunk_impl ack;
+		char peak[20];
+		int sp;
+		uint8_t bar[21];
+
+		stream->get_absolute_time(abs_time);
+		stream->get_spectrum_absolute(ack, abs_time, 1024);
+
+		peak_val = 0;
+
+		if (ack.get_data() != NULL)
+		{
+			memset(bar, 0x00, sizeof(bar));
+			samplerate = ack.get_data_size();
+			for (int z = 0; z < 20; z++)
+			{
+				peak_val = ack.get_data()[z * 12 * 2];
+				bar[z] = (uint8_t)g_scale_value_single(peak_val, 16, true) + 0x90;
+			}
+			display_set_cp_user(hid);
+			display_draw_ascii(hid, 0, 1, 0, 20, ' ', (char*)bar);
+			display_set_cp_utf8(hid);
+
+			//display_set_cp_ascii(hid);
+			//display_draw_ascii(hid, 0, 1, 0, 15, ' ', peak);
+			//display_set_cp_utf8(hid);
+		}
+
+
 
 		Sleep(1);
 
