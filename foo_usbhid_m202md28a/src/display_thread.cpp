@@ -26,6 +26,8 @@
 #define SCROLL_DEFAULT_SPEED 300
 #define SCROLL_LINE1_SIZE LINE1_LEN
 
+#define FFT_SIZE 1024 /* 对于双声道，每声道占用一半，对于单声道也是占用一半，但是两声道数据相同 */
+
 /* https://github.com/reupen/columns_ui/blob/master/foo_ui_columns/vis_spectrum.cpp */
 t_size g_scale_value_single(double val, t_size count, bool b_log)
 {
@@ -55,7 +57,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 	uint16_t code_exec_time;
 	bool disable_display;
 
-	uint32_t i;
+	uint32_t i, j;
 
 	char scroll_str[(SCROLL_LINE1_SIZE + 1) * 3];
 	uint16_t scroll_delay_count;
@@ -64,6 +66,17 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 
 	char volume_str[(VOLUME_LINE_SIZE + 1) * 3];
 	int32_t volume_delay_count;
+
+	service_ptr_t<visualisation_stream_v3> visualisation_stream_ptr;
+	static_api_ptr_t<visualisation_manager> visualisation_manager_ptr;
+	double abs_time;
+	audio_chunk_impl spectrum_chunk;
+	double spectrum_visual_data[FFT_SIZE / 2];
+	char spectrum_display_char_old[21];
+	char spectrum_display_char[21];
+
+	uint16_t spectrum_get_delay;
+	uint16_t spectrum_display_delay;
 
 	thread_data = (DisplayThreadData*)lpParamter;
 	play_info = &thread_data->play_info;
@@ -92,10 +105,15 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 	memset(scroll_str, '\0', sizeof(scroll_str));
 	volume_delay_count = 0;
 
-	service_ptr_t<visualisation_stream_v3> stream;
-	static_api_ptr_t<visualisation_manager> m;
+	visualisation_manager_ptr->create_stream(visualisation_stream_ptr, visualisation_manager::KStreamFlagNewFFT);
 
-	m->create_stream(stream, visualisation_manager::KStreamFlagNewFFT);
+	memset(spectrum_display_char, 0x9F, sizeof(spectrum_display_char));
+	memset(spectrum_display_char_old, 0x9F, sizeof(spectrum_display_char_old));
+	spectrum_display_char[sizeof(spectrum_display_char) - 1] = 0x00;
+	spectrum_display_char_old[sizeof(spectrum_display_char_old) - 1] = 0x00;
+
+	spectrum_get_delay = 20;
+	spectrum_display_delay = 1;
 
 	while (thread_data->stop == 0)
 	{
@@ -344,6 +362,65 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 			play_info->update_play_state = false;
 		}
 
+		if (play_info->play_state != PLAY_STATE_STOP)
+		{
+			if (spectrum_get_delay - code_exec_time > 0)
+			{
+				spectrum_get_delay -= code_exec_time;
+			}
+			else
+			{
+				spectrum_get_delay = 40;
+				visualisation_stream_ptr->get_absolute_time(abs_time);
+				if (visualisation_stream_ptr->get_spectrum_absolute(spectrum_chunk, abs_time, FFT_SIZE) == true)
+				{
+					// memset(spectrum_display_char, 0x00, sizeof(spectrum_display_char));
+					memset(spectrum_visual_data, 0x00, sizeof(spectrum_visual_data));
+					for (i = 0; i < FFT_SIZE - 2; i += spectrum_chunk.get_channels())
+					{
+						for (j = 0; j < spectrum_chunk.get_channels(); j++)
+						{
+							spectrum_visual_data[i / spectrum_chunk.get_channels()] += spectrum_chunk.get_data()[i + j];
+						}
+						spectrum_visual_data[i / spectrum_chunk.get_channels()] /= spectrum_chunk.get_channels();
+					}
+					for (i = 0; i < sizeof(spectrum_display_char) - 1; i++)
+					{
+						if (spectrum_display_char[i] < ((uint8_t)g_scale_value_single(spectrum_visual_data[FFT_SIZE / 2 / (sizeof(spectrum_display_char) - 1) * i], 15, true) + 0x90))
+						{
+							spectrum_display_char[i] = ((uint8_t)g_scale_value_single(spectrum_visual_data[FFT_SIZE / 2 / (sizeof(spectrum_display_char) - 1) * i], 15, true) + 0x90);
+						}
+					}
+				}
+			}
+			if (spectrum_display_delay - code_exec_time > 0)
+			{
+				spectrum_display_delay -= code_exec_time;
+			}
+			else
+			{
+				spectrum_display_delay = 20;
+				for (i = 0; i < sizeof(spectrum_display_char) - 1; i++)
+				{
+					if (spectrum_display_char[i] > spectrum_display_char_old[i])
+					{
+						spectrum_display_char_old[i] += 1;
+					}
+					else if (spectrum_display_char[i] < spectrum_display_char_old[i])
+					{
+						spectrum_display_char_old[i] -= 1;
+					}
+					else
+					{
+						//spectrum_display_char_old[i] = spectrum_display_char[i];
+					}
+				}
+				display_set_cp_user(hid);
+				display_draw_ascii(hid, 0, 1, 0, 20, ' ', spectrum_display_char_old);
+				display_set_cp_utf8(hid);
+			}
+		}
+
 		if (write_FROM == true || reset_FROM == true)
 		{
 			while (thread_data->stop == 0)
@@ -388,39 +465,6 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 				Sleep(100);
 			}
 		}
-
-		double samplerate;
-		double abs_time;
-		audio_sample peak_val;
-		audio_chunk_impl ack;
-		char peak[20];
-		int sp;
-		uint8_t bar[21];
-
-		stream->get_absolute_time(abs_time);
-		stream->get_spectrum_absolute(ack, abs_time, 1024);
-
-		peak_val = 0;
-
-		if (ack.get_data() != NULL)
-		{
-			memset(bar, 0x00, sizeof(bar));
-			samplerate = ack.get_data_size();
-			for (int z = 0; z < 20; z++)
-			{
-				peak_val = ack.get_data()[z * 12 * 2];
-				bar[z] = (uint8_t)g_scale_value_single(peak_val, 16, true) + 0x90;
-			}
-			display_set_cp_user(hid);
-			display_draw_ascii(hid, 0, 1, 0, 20, ' ', (char*)bar);
-			display_set_cp_utf8(hid);
-
-			//display_set_cp_ascii(hid);
-			//display_draw_ascii(hid, 0, 1, 0, 15, ' ', peak);
-			//display_set_cp_utf8(hid);
-		}
-
-
 
 		Sleep(1);
 
