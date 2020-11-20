@@ -20,7 +20,6 @@
 #define IDC_CK_SCROLL_ENABLE            1015
 #define IDC_CK_FADEIN_ENABLE            1016
 #define IDC_CB_SCROLL_STYLE             1017
-#define IDC_SYSLINK1                    1017
 #define IDC_TX_VOLUME_STRING1           1018
 #define IDC_TX_VOLUME_STRING2           1019
 #define IDC_CB_VOLUME_STYLE             1020
