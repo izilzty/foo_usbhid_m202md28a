@@ -75,7 +75,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
     uint16_t scroll_delay_count;
     int32_t scroll_pos;
 
-    int32_t volume_hold_count;
+    uint16_t volume_hold_count;
 
     service_ptr_t<visualisation_stream_v3> visualisation_stream_ptr;
     static_api_ptr_t<visualisation_manager> visualisation_manager_ptr;
@@ -279,14 +279,14 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
         }
         else /* 第二行音量显示保持 */
         {
-            if (volume_hold_count - code_exec_time > 0)
+            if (volume_hold_count - code_exec_time > 1)
             {
                 volume_hold_count -= code_exec_time;
                 update_line2 = false;
             }
-            else if (volume_hold_count >= 0)
+            else if (volume_hold_count > 0)
             {
-                volume_hold_count = -1;
+                volume_hold_count = 0;
                 play_info->update_play_state = true;
                 play_info->update_str_line2 = true;
             }
