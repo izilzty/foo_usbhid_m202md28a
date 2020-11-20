@@ -52,14 +52,18 @@ t_size g_scale_value_single(double val, t_size count, bool b_log)
 
 DWORD WINAPI main_display_thread(LPVOID lpParamter)
 {
+    uint32_t i, j;
+
     hid_device* hid;
     DisplayThreadData* thread_data;
     PlayInfo* play_info;
+
     clock_t start_clock, end_clock;
     uint16_t code_exec_time;
-    bool disable_display;
 
-    uint32_t i, j;
+    bool disable_display;
+    char* line1_ptr;
+    char* line2_ptr;
 
     char scroll_str[(SCROLL_LINE1_SIZE + 1) * 3];
     uint16_t scroll_delay_count;
@@ -71,14 +75,13 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 
     service_ptr_t<visualisation_stream_v3> visualisation_stream_ptr;
     static_api_ptr_t<visualisation_manager> visualisation_manager_ptr;
-    double abs_time;
+    double spectrum_abs_time;
     audio_chunk_impl spectrum_chunk;
     double spectrum_visual_data[FFT_SIZE / 2];
-    char spectrum_display_char_old[21];
-    char spectrum_display_char[21];
-
+    char spectrum_char_old[21];
+    char spectrum_char[21];
     uint16_t spectrum_get_delay;
-    uint16_t spectrum_display_delay;
+    uint16_t spectrum_draw_delay;
 
     thread_data = (DisplayThreadData*)lpParamter;
     play_info = &thread_data->play_info;
@@ -92,14 +95,17 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
         thread_data->status = -1;
         return -1;
     }
-
     display_load_default_setting(hid);
     display_set_cp_utf8(hid);
+
+    line1_ptr = NULL;
+    line2_ptr = NULL;
+
+    code_exec_time = 0;
 
     scroll_delay_count = 0;
     scroll_delay_move = 0;
     scroll_pos = SCROLL_LINE1_SIZE - 1;
-    code_exec_time = 0;
 
     play_info->update_play_state = true; /* 强制更新一次显示 */
     play_info->play_state = PLAY_STATE_STOP;
@@ -107,15 +113,13 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
     memset(scroll_str, '\0', sizeof(scroll_str));
     volume_delay_count = 0;
 
+    memset(spectrum_char, 0x9F, sizeof(spectrum_char));
+    memset(spectrum_char_old, 0x9F, sizeof(spectrum_char_old));
+    spectrum_char[sizeof(spectrum_char) - 1] = 0x00;
+    spectrum_char_old[sizeof(spectrum_char_old) - 1] = 0x00;
+    spectrum_get_delay = 0;
+    spectrum_draw_delay = 0;
     visualisation_manager_ptr->create_stream(visualisation_stream_ptr, visualisation_manager::KStreamFlagNewFFT);
-
-    memset(spectrum_display_char, 0x9F, sizeof(spectrum_display_char));
-    memset(spectrum_display_char_old, 0x9F, sizeof(spectrum_display_char_old));
-    spectrum_display_char[sizeof(spectrum_display_char) - 1] = 0x00;
-    spectrum_display_char_old[sizeof(spectrum_display_char_old) - 1] = 0x00;
-
-    spectrum_get_delay = 20;
-    spectrum_display_delay = 1;
 
     while (thread_data->stop == 0)
     {
@@ -373,10 +377,10 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             else
             {
                 spectrum_get_delay = 40;
-                visualisation_stream_ptr->get_absolute_time(abs_time);
-                if (visualisation_stream_ptr->get_spectrum_absolute(spectrum_chunk, abs_time, FFT_SIZE) == true)
+                visualisation_stream_ptr->get_absolute_time(spectrum_abs_time);
+                if (visualisation_stream_ptr->get_spectrum_absolute(spectrum_chunk, spectrum_abs_time, FFT_SIZE) == true)
                 {
-                    // memset(spectrum_display_char, 0x00, sizeof(spectrum_display_char));
+                    // memset(spectrum_char, 0x00, sizeof(spectrum_char));
                     memset(spectrum_visual_data, 0x00, sizeof(spectrum_visual_data));
                     for (i = 0; i < FFT_SIZE - 2; i += spectrum_chunk.get_channels())
                     {
@@ -386,39 +390,39 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                         }
                         spectrum_visual_data[i / spectrum_chunk.get_channels()] /= spectrum_chunk.get_channels();
                     }
-                    for (i = 0; i < sizeof(spectrum_display_char) - 1; i++)
+                    for (i = 0; i < sizeof(spectrum_char) - 1; i++)
                     {
-                        if (spectrum_display_char[i] < ((uint8_t)g_scale_value_single(spectrum_visual_data[FFT_SIZE / 2 / (sizeof(spectrum_display_char) - 1) * i], 15, true) + 0x90))
+                        if (spectrum_char[i] < ((uint8_t)g_scale_value_single(spectrum_visual_data[FFT_SIZE / 2 / (sizeof(spectrum_char) - 1) * i], 15, true) + 0x90))
                         {
-                            spectrum_display_char[i] = ((uint8_t)g_scale_value_single(spectrum_visual_data[FFT_SIZE / 2 / (sizeof(spectrum_display_char) - 1) * i], 15, true) + 0x90);
+                            spectrum_char[i] = ((uint8_t)g_scale_value_single(spectrum_visual_data[FFT_SIZE / 2 / (sizeof(spectrum_char) - 1) * i], 15, true) + 0x90);
                         }
                     }
                 }
             }
-            if (spectrum_display_delay - code_exec_time > 0)
+            if (spectrum_draw_delay - code_exec_time > 0)
             {
-                spectrum_display_delay -= code_exec_time;
+                spectrum_draw_delay -= code_exec_time;
             }
             else
             {
-                spectrum_display_delay = 20;
-                for (i = 0; i < sizeof(spectrum_display_char) - 1; i++)
+                spectrum_draw_delay = 20;
+                for (i = 0; i < sizeof(spectrum_char) - 1; i++)
                 {
-                    if (spectrum_display_char[i] > spectrum_display_char_old[i])
+                    if (spectrum_char[i] > spectrum_char_old[i])
                     {
-                        spectrum_display_char_old[i] += 1;
+                        spectrum_char_old[i] += 1;
                     }
-                    else if (spectrum_display_char[i] < spectrum_display_char_old[i])
+                    else if (spectrum_char[i] < spectrum_char_old[i])
                     {
-                        spectrum_display_char_old[i] -= 1;
+                        spectrum_char_old[i] -= 1;
                     }
                     else
                     {
-                        spectrum_display_char_old[i] = spectrum_display_char[i];
+                        spectrum_char_old[i] = spectrum_char[i];
                     }
                 }
                 display_set_cp_user(hid);
-                display_draw_ascii(hid, 0, 1, 0, 20, ' ', spectrum_display_char_old);
+                display_draw_ascii(hid, 0, 1, 0, 20, ' ', spectrum_char_old);
                 display_set_cp_utf8(hid);
             }
         }
