@@ -4,11 +4,6 @@
 #include <Windows.h>
 #include <atomic>
 
-#define PLAY_STATE_STOP 0
-#define PLAY_STATE_PLAY 1
-#define PLAY_STATE_PAUSE 2
-#define PLAY_STATE_LOADING 3
-
 struct PlayInfo
 {
 	char str_line_1[301]; /* 第一行自定义格式化字符串，最多 100 个 3Byte UTF8 字符*/

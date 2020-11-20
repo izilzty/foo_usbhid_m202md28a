@@ -28,6 +28,11 @@
 
 #define FFT_SIZE 1024 /* 对于双声道，每声道占用一半，对于单声道也是占用一半，但是两声道数据相同 */
 
+#define PLAY_STATE_STOP 0
+#define PLAY_STATE_PLAY 1
+#define PLAY_STATE_PAUSE 2
+#define PLAY_STATE_LOADING 3
+
 /*
     https://github.com/reupen/columns_ui/blob/master/foo_ui_columns/vis_spectrum.cpp
 */
