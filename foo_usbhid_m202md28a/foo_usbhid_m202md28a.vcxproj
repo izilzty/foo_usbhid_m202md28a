@@ -42,8 +42,8 @@
     <ClInclude Include="inc\display_thread.h" />
     <ClInclude Include="inc\m202md28a.h" />
     <ClInclude Include="inc\preferences.h" />
-    <ClInclude Include="inc\resource.h" />
     <ClInclude Include="inc\stdafx.h" />
+    <ClInclude Include="res\resource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\display_thread.cpp" />
@@ -109,11 +109,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)hidapi;$(SolutionDir)wtl;$(MSBuildProjectDirectory)\inc;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)hidapi;$(SolutionDir)wtl;$(MSBuildProjectDirectory)\inc;$(MSBuildProjectDirectory)\res;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(SolutionDir)hidapi;$(SolutionDir)wtl;$(MSBuildProjectDirectory)\inc;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)hidapi;$(SolutionDir)wtl;$(MSBuildProjectDirectory)\inc;$(MSBuildProjectDirectory)\res;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>

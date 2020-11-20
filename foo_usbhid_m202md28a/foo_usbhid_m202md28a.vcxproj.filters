@@ -27,7 +27,7 @@
     <ClInclude Include="inc\stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="inc\resource.h">
+    <ClInclude Include="res\resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
