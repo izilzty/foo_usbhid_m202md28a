@@ -362,7 +362,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 			play_info->update_play_state = false;
 		}
 
-		if (play_info->play_state != PLAY_STATE_STOP)
+		if (play_info->play_state != PLAY_STATE_STOP && volume_delay_count == -1)
 		{
 			if (spectrum_get_delay - code_exec_time > 0)
 			{

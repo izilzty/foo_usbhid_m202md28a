@@ -28,6 +28,12 @@
 #define IDC_TX_SCROLL_WAIT_STRING       1022
 #define IDC_TX_SCROLL_STRING            1023
 #define IDC_TX_VOLUME_HOLD_STRING       1024
+#define IDC_TX_SPFFTSPEED_STRING        1025
+#define IDC_TX_SPDRAWSPEED_STRING       1026
+#define IDC_TX_SPPOSX_STRING            1027
+#define IDC_TX_SPLENX_STRING            1028
+#define IDC_CK_SPEN_ONPLAY              1029
+#define IDC_CK_SPEN_ONSTOP              1030
 
 // Next default values for new objects
 // 
@@ -35,7 +41,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        102
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1019
+#define _APS_NEXT_CONTROL_VALUE         1031
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

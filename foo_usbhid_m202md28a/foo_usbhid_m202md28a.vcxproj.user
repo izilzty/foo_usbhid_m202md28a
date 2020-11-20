@@ -10,4 +10,7 @@
     <LocalDebuggerWorkingDirectory>$(SolutionDir)foobar2000</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup>
+    <RESOURCE_FILE>res\foo_usbhid_m202md28a.rc</RESOURCE_FILE>
+  </PropertyGroup>
 </Project>
