@@ -26,7 +26,7 @@
 #define SCROLL_DEFAULT_SPEED 300
 #define SCROLL_LINE1_SIZE LINE1_LEN
 
-#define FFT_SIZE 1024
+#define FFT_SIZE 2048
 
 #define PLAY_STATE_STOP 0
 #define PLAY_STATE_PLAY 1
@@ -87,6 +87,8 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
     uint16_t spectrum_fft_delay;
     uint16_t spectrum_draw_delay;
 
+    bool power_update_ok;
+
     thread_data = (DisplayThreadData*)lpParamter;
     play_info = &thread_data->play_info;
     hid = display_init(thread_data->vid, thread_data->pid);
@@ -119,73 +121,19 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 
     volume_hold_count = 0;
 
-    memset(spectrum_char, 0x90, sizeof(spectrum_char));
-    memset(spectrum_char_old, 0x90, sizeof(spectrum_char_old));
+    memset(spectrum_char, 0x9F, sizeof(spectrum_char));
+    memset(spectrum_char_old, 0x9F, sizeof(spectrum_char_old));
     spectrum_char[sizeof(spectrum_char) - 1] = 0x00;
     spectrum_char_old[sizeof(spectrum_char_old) - 1] = 0x00;
     spectrum_fft_delay = 0;
     spectrum_draw_delay = 0;
     visualisation_manager_ptr->create_stream(visualisation_stream_ptr, visualisation_manager::KStreamFlagNewFFT);
 
+    power_update_ok = false;
+
     while (thread_data->stop == 0)
     {
         start_clock = clock();
-
-        if (play_info->update_play_state == true) /* 电源控制 */
-        {
-            switch (play_info->play_state)
-            {
-            case PLAY_STATE_STOP:
-                if (cfg_onstop_power <= 3)
-                {
-                    display_set_power(hid, 1);
-                    display_set_dim(hid, cfg_onstop_power);
-                }
-                else if (cfg_onstop_power == 4)
-                {
-                    display_set_power(hid, 1);
-                    display_clear_screen(hid);
-                }
-                else if (cfg_onstop_power == 5)
-                {
-                    display_set_power(hid, 0);
-                }
-                break;
-            case PLAY_STATE_PLAY:
-                if (cfg_onplay_power <= 3)
-                {
-                    display_set_power(hid, 1);
-                    display_set_dim(hid, cfg_onplay_power);
-                }
-                else if (cfg_onplay_power == 4)
-                {
-                    display_set_power(hid, 1);
-                    display_clear_screen(hid);
-                }
-                else if (cfg_onplay_power == 5)
-                {
-                    display_set_power(hid, 0);
-                }
-                break;
-            case PLAY_STATE_PAUSE:
-                if (cfg_onpause_power <= 3)
-                {
-                    display_set_power(hid, 1);
-                    display_set_dim(hid, cfg_onpause_power);
-                }
-                else if (cfg_onpause_power == 4)
-                {
-                    display_set_power(hid, 1);
-                    display_clear_screen(hid);
-                }
-                else if (cfg_onpause_power == 5)
-                {
-                    display_set_power(hid, 0);
-                }
-                break;
-            }
-            /* 不清除 update_play_state，后面还有用到 */
-        }
 
         if (play_info->update_str_line1 == true || play_info->is_new_track == true) /* 播放新轨道或信息更新时，初始化第一行滚动变量 */
         {
@@ -288,80 +236,15 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             {
                 volume_hold_count = 0;
                 play_info->update_play_state = true;
-                play_info->update_str_line2 = true;
-            }
-        }
-
-        if (play_info->update_play_state == true) /* 更新第1、2行状态显示 */
-        {
-            switch (play_info->play_state)
-            {
-            case PLAY_STATE_STOP:
-                if (cfg_onstop_power == 4)
+                if (play_info->play_state == PLAY_STATE_STOP)
                 {
-                    update_line1 = false;
-                    update_line2 = false;
-                    break;
-                }
-                display_set_cp_user(hid);
-                display_draw_ascii(hid, STATEICON_X, STATEICON_Y, 0, STATEICON_FILL, ' ', STATEICON_STOP);
-                display_set_cp_utf8(hid);
-                if (*cfg_onstop_string1 != '\0')
-                {
-                    strncpy_s(line1_str, cfg_onstop_string1, sizeof(line1_str));
-                    update_line1 = true;
-                }
-                if (*cfg_onstop_string2 != '\0' && volume_hold_count <= 0)
-                {
-                    strncpy_s(line2_str, cfg_onstop_string2, sizeof(line2_str));
                     update_line2 = true;
                 }
-                memset(scroll_str, '\0', sizeof(scroll_str));
-                break;
-            case PLAY_STATE_PLAY:
-                if (cfg_onplay_power == 4)
+                else
                 {
-                    update_line1 = false;
-                    update_line2 = false;
-                    break;
+                    play_info->update_str_line2 = true;
                 }
-                display_set_cp_user(hid);
-                display_draw_ascii(hid, STATEICON_X, STATEICON_Y, 0, STATEICON_FILL, ' ', STATEICON_PLAY);
-                display_set_cp_utf8(hid);
-                break;
-            case PLAY_STATE_PAUSE:
-                if (cfg_onpause_power == 4)
-                {
-                    display_set_power(hid, 1);
-                    display_clear_screen(hid);
-                    update_line1 = false;
-                    update_line2 = false;
-                    break;
-                }
-                display_set_cp_user(hid);
-                display_draw_ascii(hid, STATEICON_X, STATEICON_Y, 0, STATEICON_FILL, ' ', STATEICON_PAUSE);
-                display_set_cp_utf8(hid);
-                break;
-            case PLAY_STATE_LOADING:
-                if (cfg_onpause_power != 4)
-                {
-                    display_set_cp_user(hid);
-                    display_draw_ascii(hid, STATEICON_X, STATEICON_Y, 0, STATEICON_FILL, ' ', STATEICON_LOAD);
-                    display_set_cp_utf8(hid);
-                    if (*cfg_onload_string1 != '\0')
-                    {
-                        strncpy_s(line1_str, cfg_onload_string1, sizeof(line1_str));
-                        update_line1 = true;
-                    }
-                    if (*cfg_onload_string2 != '\0' && volume_hold_count <= 0)
-                    {
-                        strncpy_s(line2_str, cfg_onload_string2, sizeof(line2_str));
-                        update_line2 = true;
-                    }
-                }
-                break;
             }
-            play_info->update_play_state = false;
         }
 
         if (volume_hold_count == 0 &&
@@ -409,7 +292,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             {
                 spectrum_draw_delay -= code_exec_time;
             }
-            else if (memcmp(spectrum_char, spectrum_char_old, sizeof(spectrum_char)) != 0)
+            else if (memcmp(spectrum_char, spectrum_char_old, min(cfg_spectrum_len_x, sizeof(spectrum_char))) != 0)
             {
                 spectrum_draw_delay = cfg_spectrum_draw_speed;
                 for (i = 0; i < sizeof(spectrum_char) - 1; i++)
@@ -427,10 +310,138 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                         spectrum_char_old[i] -= 1;
                     }
                 }
-                display_set_cp_user(hid);
-                display_draw_ascii(hid, min(cfg_spectrum_pos_x, 19), 1, 0, min(cfg_spectrum_len_x, 20), ' ', spectrum_char_old);
-                display_set_cp_utf8(hid);
+                update_line2 = true;
             }
+        }
+
+        if (play_info->update_play_state == true)
+        {
+            switch (play_info->play_state) /* 更新第1、2行状态显示 */
+            {
+            case PLAY_STATE_STOP:
+                if (cfg_onstop_power != 4)
+                {
+                    display_set_cp_user(hid);
+                    display_draw_ascii(hid, STATEICON_X, STATEICON_Y, 0, STATEICON_FILL, ' ', STATEICON_STOP);
+                    display_set_cp_utf8(hid);
+                }
+                if (*cfg_onstop_string1 != '\0')
+                {
+                    strncpy_s(line1_str, cfg_onstop_string1, sizeof(line1_str));
+                    update_line1 = true;
+                }
+                if (*cfg_onstop_string2 != '\0' && volume_hold_count <= 0)
+                {
+                    strncpy_s(line2_str, cfg_onstop_string2, sizeof(line2_str));
+                    update_line2 = true;
+                }
+                // memset(scroll_str, '\0', sizeof(scroll_str));
+                break;
+            case PLAY_STATE_PLAY:
+                if (cfg_onplay_power != 4)
+                {
+                    display_set_cp_user(hid);
+                    display_draw_ascii(hid, STATEICON_X, STATEICON_Y, 0, STATEICON_FILL, ' ', STATEICON_PLAY);
+                    display_set_cp_utf8(hid);
+                }
+                break;
+            case PLAY_STATE_PAUSE:
+                if (cfg_onpause_power != 4)
+                {
+                    display_set_cp_user(hid);
+                    display_draw_ascii(hid, STATEICON_X, STATEICON_Y, 0, STATEICON_FILL, ' ', STATEICON_PAUSE);
+                    display_set_cp_utf8(hid);
+                }
+                break;
+            case PLAY_STATE_LOADING:
+                if (cfg_onpause_power != 4)
+                {
+                    display_set_cp_user(hid);
+                    display_draw_ascii(hid, STATEICON_X, STATEICON_Y, 0, STATEICON_FILL, ' ', STATEICON_LOAD);
+                    display_set_cp_utf8(hid);
+                    if (*cfg_onload_string1 != '\0')
+                    {
+                        strncpy_s(line1_str, cfg_onload_string1, sizeof(line1_str));
+                        update_line1 = true;
+                    }
+                    if (*cfg_onload_string2 != '\0' && volume_hold_count <= 0)
+                    {
+                        strncpy_s(line2_str, cfg_onload_string2, sizeof(line2_str));
+                        update_line2 = true;
+                    }
+                }
+                break;
+            }
+            switch (play_info->play_state) /* 更新电源状态 */
+            {
+            case PLAY_STATE_STOP:
+                if (cfg_onstop_power <= 3)
+                {
+                    display_set_power(hid, 1);
+                    display_set_dim(hid, cfg_onstop_power);
+                }
+                else if (cfg_onstop_power == 4)
+                {
+                    display_set_power(hid, 1);
+                    display_clear_screen(hid);
+                }
+                else if (cfg_onstop_power == 5)
+                {
+                    display_set_power(hid, 0);
+                }
+                break;
+            case PLAY_STATE_PLAY:
+                if (cfg_onplay_power <= 3)
+                {
+                    display_set_power(hid, 1);
+                    display_set_dim(hid, cfg_onplay_power);
+                }
+                else if (cfg_onplay_power == 4)
+                {
+                    display_set_power(hid, 1);
+                    display_clear_screen(hid);
+                }
+                else if (cfg_onplay_power == 5)
+                {
+                    display_set_power(hid, 0);
+                }
+                break;
+            case PLAY_STATE_PAUSE:
+                if (cfg_onpause_power <= 3)
+                {
+                    display_set_power(hid, 1);
+                    display_set_dim(hid, cfg_onpause_power);
+                }
+                else if (cfg_onpause_power == 4)
+                {
+                    display_set_power(hid, 1);
+                    display_clear_screen(hid);
+                }
+                else if (cfg_onpause_power == 5)
+                {
+                    display_set_power(hid, 0);
+                }
+                break;
+            }
+            update_line1 = true;
+            update_line2 = true;
+            play_info->update_play_state = false;
+        }
+
+        if (play_info->play_state == PLAY_STATE_PAUSE && cfg_onpause_power == 4)
+        {
+            update_line1 = false;
+            update_line2 = false;
+        }
+        else if (play_info->play_state == PLAY_STATE_PLAY && cfg_onplay_power == 4)
+        {
+            update_line1 = false;
+            update_line2 = false;
+        }
+        else if (play_info->play_state == PLAY_STATE_STOP && cfg_onstop_power == 4)
+        {
+            update_line1 = false;
+            update_line2 = false;
         }
 
         if (update_line1 == true) /* 第一行文字显示更新 */
@@ -442,9 +453,12 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 
         if (update_line2 == true) /* 第二行文字显示更新 */
         {
-            if ((cfg_spectrum_enable_onplay != 0 && (play_info->play_state == PLAY_STATE_PLAY || play_info->play_state == PLAY_STATE_LOADING)) || (cfg_spectrum_enable_onstop != 0 && play_info->play_state == PLAY_STATE_STOP))
+            if (volume_hold_count == 0 && ((cfg_spectrum_enable_onplay != 0 && (play_info->play_state == PLAY_STATE_PLAY || play_info->play_state == PLAY_STATE_LOADING)) || (cfg_spectrum_enable_onstop != 0 && play_info->play_state == PLAY_STATE_STOP)))
             {
                 display_draw_utf8(hid, min(LINE2_START_X + cfg_spectrum_len_x, 20), 1, 0, min(max(LINE2_LEN - cfg_spectrum_len_x, 0), 20), ' ', line2_str);
+                display_set_cp_user(hid);
+                display_draw_ascii(hid, min(cfg_spectrum_pos_x, 19), 1, 0, min(cfg_spectrum_len_x, 20), ' ', spectrum_char_old);
+                display_set_cp_utf8(hid);
             }
             else
             {

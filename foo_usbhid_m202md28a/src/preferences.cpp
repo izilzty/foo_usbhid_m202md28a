@@ -25,7 +25,7 @@ static const uint8_t default_spectrum_enable_onstop = 0;
 static const uint16_t default_spectrum_fft_speed = 40;
 static const uint16_t default_spectrum_draw_speed = 20;
 static const uint16_t default_spectrum_pos_x = 0;
-static const uint16_t default_spectrum_len_x = 19;
+static const uint16_t default_spectrum_len_x = 20;
 
 static const uint16_t default_onvolume_hold = 2000;
 static const char default_onvolume_string2[] = u8"     ÒôÁ¿:";
