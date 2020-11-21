@@ -27,12 +27,12 @@
 #define IDC_TX_SCROLL_WAIT_STRING       1022
 #define IDC_TX_SCROLL_STRING            1023
 #define IDC_TX_VOLUME_HOLD_STRING       1024
-#define IDC_TX_SPFFTSPEED_STRING        1025
-#define IDC_TX_SPDRAWSPEED_STRING       1026
-#define IDC_TX_SPPOSX_STRING            1027
-#define IDC_TX_SPLENX_STRING            1028
-#define IDC_CK_SPEN_ONPLAY              1029
-#define IDC_CK_SPEN_ONSTOP              1030
+#define IDC_CK_SPEN_ONPLAY              1025
+#define IDC_CK_SPEN_ONSTOP              1026
+#define IDC_TX_SPFFTSPEED_STRING        1027
+#define IDC_TX_SPDRAWSPEED_STRING       1028
+#define IDC_TX_SPPOSX_STRING            1029
+#define IDC_TX_SPLENX_STRING            1030
 
 // Next default values for new objects
 // 

@@ -8,6 +8,7 @@ struct PlayInfo
 {
 	char str_line_1[301]; /* 第一行自定义格式化字符串，最多 100 个 3Byte UTF8 字符*/
 	std::atomic<bool> str_line1_avaliable;
+	std::atomic<bool> update_str_line1;
 	char str_line_2[301]; /* 第二行自定义格式化字符串，最多 100 个 3Byte UTF8 字符*/
 	std::atomic<bool> str_line2_avaliable;
 	std::atomic<bool> update_str_line2;

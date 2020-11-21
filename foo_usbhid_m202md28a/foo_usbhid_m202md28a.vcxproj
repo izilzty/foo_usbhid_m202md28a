@@ -138,7 +138,7 @@
       <AdditionalDependencies>$(SolutionDir)foobar_sdk\foobar2000\shared\shared.lib;Setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "$(SolutionDir)foobar2000\components\"</Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)foobar2000\components\"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copying output file to test directory...</Message>
@@ -166,7 +166,7 @@
       <AdditionalDependencies>$(SolutionDir)foobar_sdk\foobar2000\shared\shared.lib;Setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "$(SolutionDir)foobar2000\components\"</Command>
+      <Command>copy /Y "$(TargetPath)" "$(SolutionDir)foobar2000\components\"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copying output file to test directory...</Message>

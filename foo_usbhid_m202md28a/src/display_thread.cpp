@@ -26,7 +26,7 @@
 #define SCROLL_DEFAULT_SPEED 300
 #define SCROLL_LINE1_SIZE LINE1_LEN
 
-#define FFT_SIZE 1024 /* 对于双声道，每声道占用一半，对于单声道也是占用一半，但是两声道数据相同 */
+#define FFT_SIZE 1024
 
 #define PLAY_STATE_STOP 0
 #define PLAY_STATE_PLAY 1
@@ -84,7 +84,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
     double spectrum_visual_data[FFT_SIZE / 2];
     char spectrum_char_old[21];
     char spectrum_char[21];
-    uint16_t spectrum_get_delay;
+    uint16_t spectrum_fft_delay;
     uint16_t spectrum_draw_delay;
 
     thread_data = (DisplayThreadData*)lpParamter;
@@ -119,11 +119,11 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 
     volume_hold_count = 0;
 
-    memset(spectrum_char, 0x9F, sizeof(spectrum_char));
-    memset(spectrum_char_old, 0x9F, sizeof(spectrum_char_old));
+    memset(spectrum_char, 0x90, sizeof(spectrum_char));
+    memset(spectrum_char_old, 0x90, sizeof(spectrum_char_old));
     spectrum_char[sizeof(spectrum_char) - 1] = 0x00;
     spectrum_char_old[sizeof(spectrum_char_old) - 1] = 0x00;
-    spectrum_get_delay = 0;
+    spectrum_fft_delay = 0;
     spectrum_draw_delay = 0;
     visualisation_manager_ptr->create_stream(visualisation_stream_ptr, visualisation_manager::KStreamFlagNewFFT);
 
@@ -187,7 +187,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             /* 不清除 update_play_state，后面还有用到 */
         }
 
-        if (play_info->is_new_track == true) /* 播放新轨道时，初始化第一行滚动变量 */
+        if (play_info->update_str_line1 == true || play_info->is_new_track == true) /* 播放新轨道或信息更新时，初始化第一行滚动变量 */
         {
             if (cfg_fadein_speed != 0)
             {
@@ -199,9 +199,9 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             }
             scroll_delay_count = cfg_fadein_speed;
             play_info->is_new_track = false;
+            play_info->update_str_line1 = false;
         }
-
-        if (scroll_delay_count - code_exec_time > 0) /* 第一行滚动间隔 */
+        if (scroll_delay_count - code_exec_time > 0) /* 第一行滚动延时 */
         {
             scroll_delay_count -= code_exec_time;
         }
@@ -364,22 +364,27 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             play_info->update_play_state = false;
         }
 
-        /*
-        if (play_info->play_state != PLAY_STATE_STOP && volume_hold_count == -1)
+        if (volume_hold_count == 0 &&
+            (
+                (cfg_spectrum_enable_onplay != 0 && (play_info->play_state == PLAY_STATE_PLAY || play_info->play_state == PLAY_STATE_LOADING)) ||
+                (cfg_spectrum_enable_onstop != 0 && play_info->play_state == PLAY_STATE_STOP)
+                )
+            )
         {
-            if (spectrum_get_delay - code_exec_time > 0)
+            if (spectrum_fft_delay - code_exec_time > 0)
             {
-                spectrum_get_delay -= code_exec_time;
+                spectrum_fft_delay -= code_exec_time;
             }
             else
             {
-                spectrum_get_delay = 40;
+                spectrum_fft_delay = cfg_spectrum_fft_speed;
                 visualisation_stream_ptr->get_absolute_time(spectrum_abs_time);
+                // visualisation_stream_ptr->make_fake_spectrum_absolute(spectrum_chunk, spectrum_abs_time, FFT_SIZE);
                 if (visualisation_stream_ptr->get_spectrum_absolute(spectrum_chunk, spectrum_abs_time, FFT_SIZE) == true)
                 {
                     // memset(spectrum_char, 0x00, sizeof(spectrum_char));
                     memset(spectrum_visual_data, 0x00, sizeof(spectrum_visual_data));
-                    for (i = 0; i < FFT_SIZE - 2; i += spectrum_chunk.get_channels())
+                    for (i = 0; i < spectrum_chunk.get_used_size(); i += spectrum_chunk.get_channels())
                     {
                         for (j = 0; j < spectrum_chunk.get_channels(); j++)
                         {
@@ -389,41 +394,44 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                     }
                     for (i = 0; i < sizeof(spectrum_char) - 1; i++)
                     {
-                        if (spectrum_char[i] < ((uint8_t)g_scale_value_single(spectrum_visual_data[FFT_SIZE / 2 / (sizeof(spectrum_char) - 1) * i], 15, true) + 0x90))
+                        if (spectrum_char[i] < ((uint8_t)g_scale_value_single(spectrum_visual_data[spectrum_chunk.get_used_size() / spectrum_chunk.get_channels() / min(cfg_spectrum_len_x, 20) * i], 15, true) + 0x90))
                         {
-                            spectrum_char[i] = ((uint8_t)g_scale_value_single(spectrum_visual_data[FFT_SIZE / 2 / (sizeof(spectrum_char) - 1) * i], 15, true) + 0x90);
+                            spectrum_char[i] = ((uint8_t)g_scale_value_single(spectrum_visual_data[spectrum_chunk.get_used_size() / spectrum_chunk.get_channels() / min(cfg_spectrum_len_x, 20) * i], 15, true) + 0x90);
                         }
                     }
+                }
+                else if (cfg_spectrum_enable_onstop != 0)
+                {
+                    memset(spectrum_char, '\x90', sizeof(spectrum_char));
                 }
             }
             if (spectrum_draw_delay - code_exec_time > 0)
             {
                 spectrum_draw_delay -= code_exec_time;
             }
-            else
+            else if (memcmp(spectrum_char, spectrum_char_old, sizeof(spectrum_char)) != 0)
             {
-                spectrum_draw_delay = 20;
+                spectrum_draw_delay = cfg_spectrum_draw_speed;
                 for (i = 0; i < sizeof(spectrum_char) - 1; i++)
                 {
-                    if (spectrum_char[i] > spectrum_char_old[i])
+                    if (spectrum_char[i] > spectrum_char_old[i] && play_info->play_state != PLAY_STATE_STOP && play_info->play_state != PLAY_STATE_LOADING)
                     {
                         spectrum_char_old[i] += 1;
                     }
-                    else if (spectrum_char[i] < spectrum_char_old[i])
+                    else if (spectrum_char[i] < spectrum_char_old[i] && play_info->play_state != PLAY_STATE_STOP && play_info->play_state != PLAY_STATE_LOADING)
                     {
                         spectrum_char_old[i] -= 1;
                     }
-                    else
+                    else if (spectrum_char_old[i] > '\x90' && (play_info->play_state == PLAY_STATE_STOP || play_info->play_state == PLAY_STATE_LOADING))
                     {
-                        spectrum_char_old[i] = spectrum_char[i];
+                        spectrum_char_old[i] -= 1;
                     }
                 }
                 display_set_cp_user(hid);
-                display_draw_ascii(hid, 0, 1, 0, 20, ' ', spectrum_char_old);
+                display_draw_ascii(hid, min(cfg_spectrum_pos_x, 19), 1, 0, min(cfg_spectrum_len_x, 20), ' ', spectrum_char_old);
                 display_set_cp_utf8(hid);
             }
         }
-        */
 
         if (update_line1 == true) /* 第一行文字显示更新 */
         {
@@ -431,12 +439,21 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             update_line1 = false;
             // OutputDebugStringA("Update Line 1\n");
         }
+
         if (update_line2 == true) /* 第二行文字显示更新 */
         {
-            display_draw_utf8(hid, LINE2_START_X, 1, 0, LINE2_LEN, ' ', line2_str);
+            if ((cfg_spectrum_enable_onplay != 0 && (play_info->play_state == PLAY_STATE_PLAY || play_info->play_state == PLAY_STATE_LOADING)) || (cfg_spectrum_enable_onstop != 0 && play_info->play_state == PLAY_STATE_STOP))
+            {
+                display_draw_utf8(hid, min(LINE2_START_X + cfg_spectrum_len_x, 20), 1, 0, min(max(LINE2_LEN - cfg_spectrum_len_x, 0), 20), ' ', line2_str);
+            }
+            else
+            {
+                display_draw_utf8(hid, LINE2_START_X, 1, 0, LINE2_LEN, ' ', line2_str);
+            }
             update_line2 = false;
             // OutputDebugStringA("Update Line 2\n");
         }
+
 
         if (write_FROM == true || reset_FROM == true) /* 自定义字体清除和写入控制，收到退出标志前死循环，不再更新其他显示 */
         {
@@ -604,6 +621,7 @@ void DisplayThread::format_line1(const char* format)
             memcpy(thread_data.play_info.str_line_1, formatter_str, formatter_str_len);
         }
         thread_data.play_info.str_line1_avaliable = true;
+        thread_data.play_info.update_str_line1 = true;
     }
 }
 
@@ -675,7 +693,7 @@ void DisplayThread::on_playback_pause(bool p_state)
 
 void DisplayThread::on_playback_edited(metadb_handle_ptr p_track)
 {
-    thread_data.play_info.is_new_track = true;
+    thread_data.play_info.update_str_line1 = true;
     format_line1(cfg_onplay_format1);
 }
 
