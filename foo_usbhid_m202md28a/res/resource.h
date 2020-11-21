@@ -33,6 +33,7 @@
 #define IDC_TX_SPDRAWSPEED_STRING       1028
 #define IDC_TX_SPPOSX_STRING            1029
 #define IDC_TX_SPLENX_STRING            1030
+#define IDC_CK_SPFAKE                   1031
 
 // Next default values for new objects
 // 

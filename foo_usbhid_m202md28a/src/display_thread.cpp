@@ -86,8 +86,10 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
     char spectrum_char[21];
     uint16_t spectrum_fft_delay;
     uint16_t spectrum_draw_delay;
+    uint32_t spectrum_20k_pos;
+    // const uint32_t spectrum_freq[20] = { 0,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,11000,12000,13000,14000,15000,16000,17000,18000,19000 };
 
-    bool power_update_ok;
+    bool display_off;
 
     thread_data = (DisplayThreadData*)lpParamter;
     play_info = &thread_data->play_info;
@@ -121,6 +123,8 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
 
     volume_hold_count = 0;
 
+    display_off = false;
+
     memset(spectrum_char, 0x9F, sizeof(spectrum_char));
     memset(spectrum_char_old, 0x9F, sizeof(spectrum_char_old));
     spectrum_char[sizeof(spectrum_char) - 1] = 0x00;
@@ -128,8 +132,6 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
     spectrum_fft_delay = 0;
     spectrum_draw_delay = 0;
     visualisation_manager_ptr->create_stream(visualisation_stream_ptr, visualisation_manager::KStreamFlagNewFFT);
-
-    power_update_ok = false;
 
     while (thread_data->stop == 0)
     {
@@ -187,7 +189,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                     continue;
                 }
             }
-            display_scroll_utf8(play_info->str_line_1, scroll_pos, sizeof(scroll_str) / 3, scroll_str, sizeof(scroll_str));
+            display_scroll_utf8(play_info->str_line_1, scroll_pos, SCROLL_LINE1_SIZE + 1, scroll_str, sizeof(scroll_str));
             strncpy_s(line1_str, scroll_str, sizeof(line1_str));
             update_line1 = true;
             scroll_pos -= 1;
@@ -262,24 +264,32 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             {
                 spectrum_fft_delay = cfg_spectrum_fft_speed;
                 visualisation_stream_ptr->get_absolute_time(spectrum_abs_time);
-                // visualisation_stream_ptr->make_fake_spectrum_absolute(spectrum_chunk, spectrum_abs_time, FFT_SIZE);
                 if (visualisation_stream_ptr->get_spectrum_absolute(spectrum_chunk, spectrum_abs_time, FFT_SIZE) == true)
                 {
+                    if (cfg_spectrum_enable_fake == 1)
+                    {
+                        visualisation_stream_ptr->make_fake_spectrum_absolute(spectrum_chunk, spectrum_abs_time, FFT_SIZE);
+                    }
                     // memset(spectrum_char, 0x00, sizeof(spectrum_char));
                     memset(spectrum_visual_data, 0x00, sizeof(spectrum_visual_data));
                     for (i = 0; i < spectrum_chunk.get_used_size(); i += spectrum_chunk.get_channels())
                     {
                         for (j = 0; j < spectrum_chunk.get_channels(); j++)
                         {
-                            spectrum_visual_data[i / spectrum_chunk.get_channels()] += spectrum_chunk.get_data()[i + j];
+                            spectrum_visual_data[i / spectrum_chunk.get_channels()] += spectrum_chunk.get_data()[i + j] / spectrum_chunk.get_channels();
                         }
-                        spectrum_visual_data[i / spectrum_chunk.get_channels()] /= spectrum_chunk.get_channels();
                     }
+                    spectrum_20k_pos = (uint32_t)min(22050.0 / (spectrum_chunk.get_srate() / 2.0 / (spectrum_chunk.get_used_size() / spectrum_chunk.get_channels())), sizeof(spectrum_visual_data) / sizeof(double) - 1);
                     for (i = 0; i < sizeof(spectrum_char) - 1; i++)
                     {
-                        if (spectrum_char[i] < ((uint8_t)g_scale_value_single(spectrum_visual_data[spectrum_chunk.get_used_size() / spectrum_chunk.get_channels() / min(cfg_spectrum_len_x, 20) * i], 15, true) + 0x90))
+                        if ((spectrum_20k_pos / min(cfg_spectrum_len_x, 20) * i) < sizeof(spectrum_visual_data))
                         {
-                            spectrum_char[i] = ((uint8_t)g_scale_value_single(spectrum_visual_data[spectrum_chunk.get_used_size() / spectrum_chunk.get_channels() / min(cfg_spectrum_len_x, 20) * i], 15, true) + 0x90);
+                            spectrum_char[i] = ((uint8_t)g_scale_value_single(spectrum_visual_data[spectrum_20k_pos / min(cfg_spectrum_len_x, 20) * i], 15, cfg_spectrum_enable_fake ? false : true) + 0x90);
+                        }
+                        else
+                        {
+
+                            spectrum_char[i] = '\0';
                         }
                     }
                 }
@@ -423,49 +433,52 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                 }
                 break;
             }
-            update_line1 = true;
-            update_line2 = true;
+            if (display_off == true)
+            {
+                update_line1 = true;
+                update_line2 = true;
+                display_off = false;
+            }
             play_info->update_play_state = false;
         }
 
         if (play_info->play_state == PLAY_STATE_PAUSE && cfg_onpause_power == 4)
         {
-            update_line1 = false;
-            update_line2 = false;
+            display_off = true;
         }
         else if (play_info->play_state == PLAY_STATE_PLAY && cfg_onplay_power == 4)
         {
-            update_line1 = false;
-            update_line2 = false;
+            display_off = true;
         }
         else if (play_info->play_state == PLAY_STATE_STOP && cfg_onstop_power == 4)
         {
-            update_line1 = false;
-            update_line2 = false;
+            display_off = true;
         }
 
-        if (update_line1 == true) /* 第一行文字显示更新 */
+        if (display_off == false)
         {
-            display_draw_utf8(hid, LINE1_START_X, 0, 0, LINE1_LEN, ' ', line1_str);
-            update_line1 = false;
-            // OutputDebugStringA("Update Line 1\n");
-        }
-
-        if (update_line2 == true) /* 第二行文字显示更新 */
-        {
-            if (volume_hold_count == 0 && ((cfg_spectrum_enable_onplay != 0 && (play_info->play_state == PLAY_STATE_PLAY || play_info->play_state == PLAY_STATE_LOADING)) || (cfg_spectrum_enable_onstop != 0 && play_info->play_state == PLAY_STATE_STOP)))
+            if (update_line1 == true) /* 第一行文字显示更新 */
             {
-                display_draw_utf8(hid, min(LINE2_START_X + cfg_spectrum_len_x, 20), 1, 0, min(max(LINE2_LEN - cfg_spectrum_len_x, 0), 20), ' ', line2_str);
-                display_set_cp_user(hid);
-                display_draw_ascii(hid, min(cfg_spectrum_pos_x, 19), 1, 0, min(cfg_spectrum_len_x, 20), ' ', spectrum_char_old);
-                display_set_cp_utf8(hid);
+                display_draw_utf8(hid, LINE1_START_X, 0, 0, LINE1_LEN, ' ', line1_str);
+                update_line1 = false;
+                // OutputDebugStringA("Update Line 1\n");
             }
-            else
+            if (update_line2 == true) /* 第二行文字显示更新 */
             {
-                display_draw_utf8(hid, LINE2_START_X, 1, 0, LINE2_LEN, ' ', line2_str);
+                if (volume_hold_count == 0 && ((cfg_spectrum_enable_onplay != 0 && (play_info->play_state == PLAY_STATE_PLAY || play_info->play_state == PLAY_STATE_LOADING || play_info->play_state == PLAY_STATE_PAUSE)) || (cfg_spectrum_enable_onstop != 0 && play_info->play_state == PLAY_STATE_STOP)))
+                {
+                    display_draw_utf8(hid, min(LINE2_START_X + cfg_spectrum_len_x, 20), 1, 0, min(max(LINE2_LEN - cfg_spectrum_len_x, 0), 20), ' ', line2_str);
+                    display_set_cp_user(hid);
+                    display_draw_ascii(hid, min(cfg_spectrum_pos_x, 19), 1, 0, min(cfg_spectrum_len_x, 20), ' ', spectrum_char_old);
+                    display_set_cp_utf8(hid);
+                }
+                else
+                {
+                    display_draw_utf8(hid, LINE2_START_X, 1, 0, LINE2_LEN, ' ', line2_str);
+                }
+                update_line2 = false;
+                // OutputDebugStringA("Update Line 2\n");
             }
-            update_line2 = false;
-            // OutputDebugStringA("Update Line 2\n");
         }
 
 

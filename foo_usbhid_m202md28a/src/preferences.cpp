@@ -26,6 +26,7 @@ static const uint16_t default_spectrum_fft_speed = 40;
 static const uint16_t default_spectrum_draw_speed = 20;
 static const uint16_t default_spectrum_pos_x = 0;
 static const uint16_t default_spectrum_len_x = 20;
+static const uint16_t default_spectrum_enable_fake = 0;
 
 static const uint16_t default_onvolume_hold = 2000;
 static const char default_onvolume_string2[] = u8"     “Ù¡ø:";
@@ -59,6 +60,7 @@ static const GUID guid_cfg_spectrum_fft_speed = { 0xeecb2bbe, 0xea95, 0x4e39, { 
 static const GUID guid_cfg_spectrum_draw_speed = { 0x24d1f78b, 0x4d36, 0x4050, { 0x88, 0x44, 0x92, 0xf9, 0x47, 0x7a, 0x25, 0x15 } };
 static const GUID guid_cfg_spectrum_pos_x = { 0xbb3b6447, 0x7ddd, 0x43ed, { 0xad, 0x2f, 0x3e, 0x2c, 0x59, 0xc7, 0xb8, 0xbd } };
 static const GUID guid_cfg_spectrum_len_x = { 0xea22b571, 0x7aae, 0x40e2, { 0x95, 0xbc, 0xc, 0x18, 0x9f, 0xd8, 0x91, 0x1a } };
+static const GUID guid_cfg_spectrum_enable_fake = { 0x57f7664a, 0x832f, 0x47e6, { 0x81, 0xf5, 0x19, 0x75, 0xaf, 0x8d, 0x3d, 0x81 } };
 
 static const GUID guid_cfg_onvolume_style = { 0x810e6738, 0xe6cd, 0x4a4e, { 0xbf, 0x51, 0xdc, 0x40, 0x7b, 0x7f, 0x40, 0x63 } };
 static const GUID guid_cfg_onvolume_string2 = { 0xf9c4c639, 0x13dd, 0x4fb0, { 0xbf, 0x1f, 0xf9, 0xc9, 0x79, 0x60, 0x2b, 0x41 } };
@@ -90,6 +92,7 @@ cfg_int cfg_spectrum_fft_speed(guid_cfg_spectrum_fft_speed, default_spectrum_fft
 cfg_int cfg_spectrum_draw_speed(guid_cfg_spectrum_draw_speed, default_spectrum_draw_speed);
 cfg_int cfg_spectrum_pos_x(guid_cfg_spectrum_pos_x, default_spectrum_pos_x);
 cfg_int cfg_spectrum_len_x(guid_cfg_spectrum_len_x, default_spectrum_len_x);
+cfg_int cfg_spectrum_enable_fake(guid_cfg_spectrum_enable_fake, default_spectrum_enable_fake);
 
 cfg_int cfg_onvolume_hold(guid_cfg_onvolume_style, default_onvolume_hold);
 cfg_string cfg_onvolume_string2(guid_cfg_onvolume_string2, default_onvolume_string2);
@@ -148,12 +151,13 @@ public:
         COMMAND_HANDLER_EX(IDC_TX_STOP_STRING1, EN_CHANGE, OnEditChange)
         COMMAND_HANDLER_EX(IDC_TX_STOP_STRING2, EN_CHANGE, OnEditChange)
 
+        COMMAND_HANDLER_EX(IDC_CK_SPEN_ONPLAY, BN_CLICKED, OnEditChange)
+        COMMAND_HANDLER_EX(IDC_CK_SPEN_ONSTOP, BN_CLICKED, OnEditChange)
         COMMAND_HANDLER_EX(IDC_TX_SPFFTSPEED_STRING, EN_CHANGE, OnEditChange)
         COMMAND_HANDLER_EX(IDC_TX_SPDRAWSPEED_STRING, EN_CHANGE, OnEditChange)
         COMMAND_HANDLER_EX(IDC_TX_SPPOSX_STRING, EN_CHANGE, OnEditChange)
         COMMAND_HANDLER_EX(IDC_TX_SPLENX_STRING, EN_CHANGE, OnEditChange)
-        COMMAND_HANDLER_EX(IDC_CK_SPEN_ONPLAY, BN_CLICKED, OnEditChange)
-        COMMAND_HANDLER_EX(IDC_CK_SPEN_ONSTOP, BN_CLICKED, OnEditChange)
+        COMMAND_HANDLER_EX(IDC_CK_SPFAKE, BN_CLICKED, OnEditChange)
 
         COMMAND_HANDLER_EX(IDC_TX_VOLUME_HOLD_STRING, EN_CHANGE, OnEditChange)
         COMMAND_HANDLER_EX(IDC_TX_VOLUME_STRING2, EN_CHANGE, OnEditChange)
@@ -237,6 +241,7 @@ BOOL CPreferences::OnInitDialog(CWindow, LPARAM)
     SetDlgItemInt(IDC_TX_SPDRAWSPEED_STRING, cfg_spectrum_draw_speed, false);
     SetDlgItemInt(IDC_TX_SPPOSX_STRING, cfg_spectrum_pos_x, false);
     SetDlgItemInt(IDC_TX_SPLENX_STRING, cfg_spectrum_len_x, false);
+    ((CCheckBox)GetDlgItem(IDC_CK_SPFAKE)).SetCheck(cfg_spectrum_enable_fake);
 
     uSetDlgItemText(*this, IDC_TX_VOLUME_STRING2, cfg_onvolume_string2);
     SetDlgItemInt(IDC_TX_VOLUME_HOLD_STRING, cfg_onvolume_hold, false);
@@ -300,6 +305,7 @@ void CPreferences::reset()
     SetDlgItemInt(IDC_TX_SPDRAWSPEED_STRING, default_spectrum_draw_speed, false);
     SetDlgItemInt(IDC_TX_SPPOSX_STRING, default_spectrum_pos_x, false);
     SetDlgItemInt(IDC_TX_SPLENX_STRING, default_spectrum_len_x, false);
+    ((CCheckBox)GetDlgItem(IDC_CK_SPFAKE)).SetCheck(default_spectrum_enable_fake);
 
     uSetDlgItemText(*this, IDC_TX_VOLUME_STRING2, default_onvolume_string2);
     SetDlgItemInt(IDC_TX_VOLUME_HOLD_STRING, default_onvolume_hold, false);
@@ -344,6 +350,7 @@ void CPreferences::apply()
     cfg_spectrum_draw_speed = GetDlgItemInt(IDC_TX_SPDRAWSPEED_STRING, NULL, false);
     cfg_spectrum_pos_x = GetDlgItemInt(IDC_TX_SPPOSX_STRING, NULL, false);
     cfg_spectrum_len_x = GetDlgItemInt(IDC_TX_SPLENX_STRING, NULL, false);
+    cfg_spectrum_enable_fake = ((CCheckBox)GetDlgItem(IDC_CK_SPFAKE)).GetCheck();
 
     uGetDlgItemText(*this, IDC_TX_VOLUME_STRING2, cfg_onvolume_string2);
     cfg_onvolume_hold = GetDlgItemInt(IDC_TX_VOLUME_HOLD_STRING, NULL, false);

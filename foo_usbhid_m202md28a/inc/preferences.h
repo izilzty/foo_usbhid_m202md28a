@@ -23,6 +23,7 @@ extern cfg_int cfg_spectrum_fft_speed;
 extern cfg_int cfg_spectrum_draw_speed;
 extern cfg_int cfg_spectrum_pos_x;
 extern cfg_int cfg_spectrum_len_x;
+extern cfg_int cfg_spectrum_enable_fake;
 
 extern cfg_int cfg_onvolume_hold;
 extern cfg_string cfg_onvolume_string2;

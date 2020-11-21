@@ -125,10 +125,10 @@ BEGIN
     GROUPBOX        "On stop",IDC_STATIC,171,112,154,50
     LTEXT           "Line1 string:",IDC_STATIC,182,126,40,8
     LTEXT           "Line2 string:",IDC_STATIC,182,142,40,8
-    LTEXT           "X: 0 ~ 19",IDC_STATIC,218,191,31,8
     CONTROL         "",IDC_STATIC,"Static",SS_ETCHEDVERT,86,176,1,31
     CONTROL         "",IDC_STATIC,"Static",SS_ETCHEDVERT,188,176,1,31
-    LTEXT           "X: 1 ~ 20",IDC_STATIC,285,191,31,8
+    LTEXT           "X: 1 ~ 20",IDC_STATIC,285,195,31,8
+    CONTROL         "Fake spectrum",IDC_CK_SPFAKE,"Button",BS_AUTOCHECKBOX | BS_LEFTTEXT | WS_TABSTOP,193,194,63,10
 END
 
 
