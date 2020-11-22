@@ -84,6 +84,9 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
     double spectrum_visual_data[FFT_SIZE / 2];
     char spectrum_char_old[21];
     char spectrum_char[21];
+    uint32_t spectrum_channels;
+    uint32_t spectrum_srate;
+    uint32_t spectrum_datasize;
     uint16_t spectrum_fft_delay;
     uint16_t spectrum_draw_delay;
     uint32_t spectrum_20k_pos;
@@ -222,6 +225,10 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                 {
                     play_info->volume = -99.99;
                 }
+                else if (play_info->volume >= 0)
+                {
+                    play_info->volume = -0.001; /* 增益为0时也显示负数，去除此行在0dB时显示正数 */
+                }
                 snprintf(&line2_str[i], sizeof(line2_str) - i, "%+06.2fdB", (double)play_info->volume);
                 update_line2 = true;
             }
@@ -270,26 +277,24 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                     {
                         visualisation_stream_ptr->make_fake_spectrum_absolute(spectrum_chunk, spectrum_abs_time, FFT_SIZE);
                     }
-                    // memset(spectrum_char, 0x00, sizeof(spectrum_char));
+                    memset(spectrum_char, 0x00, sizeof(spectrum_char));
                     memset(spectrum_visual_data, 0x00, sizeof(spectrum_visual_data));
-                    for (i = 0; i < spectrum_chunk.get_used_size(); i += spectrum_chunk.get_channels())
+                    spectrum_channels = spectrum_chunk.get_channels();
+                    spectrum_srate = spectrum_chunk.get_srate();
+                    spectrum_datasize = spectrum_chunk.get_used_size();
+                    for (i = 0; i < spectrum_datasize; i += spectrum_channels)
                     {
-                        for (j = 0; j < spectrum_chunk.get_channels(); j++)
+                        for (j = 0; j < spectrum_channels; j++)
                         {
-                            spectrum_visual_data[i / spectrum_chunk.get_channels()] += spectrum_chunk.get_data()[i + j] / spectrum_chunk.get_channels();
+                            spectrum_visual_data[i / spectrum_channels] += spectrum_chunk.get_data()[i + j] / spectrum_channels;
                         }
                     }
-                    spectrum_20k_pos = (uint32_t)min(22050.0 / (spectrum_chunk.get_srate() / 2.0 / (spectrum_chunk.get_used_size() / spectrum_chunk.get_channels())), sizeof(spectrum_visual_data) / sizeof(double) - 1);
+                    spectrum_20k_pos = (uint32_t)min(22050.0 / (spectrum_srate / 2.0 / (spectrum_datasize / spectrum_channels)), sizeof(spectrum_visual_data) / sizeof(double) - 1);
                     for (i = 0; i < sizeof(spectrum_char) - 1; i++)
                     {
                         if ((spectrum_20k_pos / min(cfg_spectrum_len_x, 20) * i) < sizeof(spectrum_visual_data))
                         {
-                            spectrum_char[i] = ((uint8_t)g_scale_value_single(spectrum_visual_data[spectrum_20k_pos / min(cfg_spectrum_len_x, 20) * i], 15, cfg_spectrum_enable_fake ? false : true) + 0x90);
-                        }
-                        else
-                        {
-
-                            spectrum_char[i] = '\0';
+                            spectrum_char[i] = (uint8_t)g_scale_value_single(spectrum_visual_data[spectrum_20k_pos / min(cfg_spectrum_len_x, 20) * i], 15, cfg_spectrum_enable_fake ? false : true) + 0x90;
                         }
                     }
                 }
