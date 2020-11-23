@@ -290,7 +290,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                         }
                     }
                     spectrum_20k_pos = (uint32_t)min(22050.0 / (spectrum_srate / 2.0 / (spectrum_datasize / spectrum_channels)), sizeof(spectrum_visual_data) / sizeof(double) - 1);
-                    for (i = 0; i < sizeof(spectrum_char) - 1; i++)
+                    for (i = 0; i < min(sizeof(spectrum_char) - 1, cfg_spectrum_len_x); i++)
                     {
                         if ((spectrum_20k_pos / min(cfg_spectrum_len_x, 20) * i) < sizeof(spectrum_visual_data))
                         {
@@ -307,10 +307,10 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             {
                 spectrum_draw_delay -= code_exec_time;
             }
-            else if (memcmp(spectrum_char, spectrum_char_disp, min(cfg_spectrum_len_x, sizeof(spectrum_char))) != 0)
+            else if (memcmp(spectrum_char, spectrum_char_disp, min(cfg_spectrum_len_x, sizeof(spectrum_char) - 1)) != 0)
             {
                 spectrum_draw_delay = cfg_spectrum_draw_speed;
-                for (i = 0; i < sizeof(spectrum_char) - 1; i++)
+                for (i = 0; i < min(sizeof(spectrum_char) - 1, cfg_spectrum_len_x); i++)
                 {
                     if (spectrum_char[i] > spectrum_char_disp[i] && play_info->play_state != PLAY_STATE_STOP && play_info->play_state != PLAY_STATE_LOADING)
                     {

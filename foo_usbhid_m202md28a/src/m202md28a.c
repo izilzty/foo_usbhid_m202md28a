@@ -1,4 +1,5 @@
 ﻿#include "m202md28a.h"
+#include <math.h>
 #include <stdarg.h>  /* va_start() va_end() va_arg() */
 #include <Windows.h> /* MultiByteToWideChar() WideCharToMultiByte() */
 
@@ -55,7 +56,7 @@ int8_t display_send_data(hid_device* device, const uint8_t* data, uint16_t data_
 
     for (i = 0; i < loop_count; i++)
     {
-        memset(usb_send_data, '\0', sizeof(usb_send_data));
+        memset(usb_send_data, 0x00, sizeof(usb_send_data));
         usb_send_data[0] = DISPLAY_HID_REPORT_ID;
         usb_send_data[1] = screen_max_data_size;
         memcpy(usb_send_data + 2, data, screen_max_data_size);
@@ -67,9 +68,9 @@ int8_t display_send_data(hid_device* device, const uint8_t* data, uint16_t data_
         }
     }
 
-    if (data_size != 0)
+    if (data_size > 0)
     {
-        memset(usb_send_data, '\0', sizeof(usb_send_data));
+        memset(usb_send_data, 0x00, sizeof(usb_send_data));
         usb_send_data[0] = DISPLAY_HID_REPORT_ID;
         usb_send_data[1] = (uint8_t)data_size;
         memcpy(usb_send_data + 2, data, data_size);
@@ -103,7 +104,7 @@ int8_t display_send_cmd(hid_device* device, const uint8_t* cmd, uint8_t cmd_size
         return -1;
     }
 
-    memset(cmd_data, '\0', sizeof(cmd_data));
+    memset(cmd_data, 0x00, sizeof(cmd_data));
     cmd_data_size = 0;
 
     memcpy(cmd_data + cmd_data_size, cmd, cmd_size);
@@ -239,8 +240,10 @@ int8_t display_write_FROM(hid_device* device)
 
     from_data_ptr = from_data;
     memset(from_data_ptr, 0xFF, sizeof(from_data));
+
     memcpy(from_data_ptr, cmd_UserTableRegistAll, sizeof(cmd_UserTableRegistAll));
     from_data_ptr += sizeof(cmd_UserTableRegistAll);
+
     memcpy(from_data_ptr, FROM_icon_stop, sizeof(FROM_icon_stop)); /* 0x80 */
     from_data_ptr += sizeof(FROM_icon_stop);
     memcpy(from_data_ptr, FROM_icon_play, sizeof(FROM_icon_play)); /* 0x81 */
@@ -483,6 +486,7 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
     uint16_t display_data_size;
     uint8_t current_codepage;
     uint8_t fill_str_len;
+    uint8_t max_singledata_size;
 
     if (device == NULL)
     {
@@ -551,6 +555,8 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
         unicode_str_len += fill_str_len;
     }
 
+    max_singledata_size = sizeof(cmd_2ByteCharacter_P) + 1 + 2;
+    max_singledata_size = max(max_singledata_size + (sizeof(cmd_CharacterTableType_P) + 1), max_singledata_size + (sizeof(cmd_2ByteCharacterType_P) + 1));
     current_codepage = 0;
     for (i = 0; i < unicode_str_len - 1; i++) /* 因为屏幕的中日韩代码页是分开的，所以需要确认每个字符并切换到相应的代码页 */
     {
@@ -558,7 +564,7 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
         {
             continue;
         }
-        if (display_data_size > (sizeof(display_data) - sizeof(cmd_2ByteCharacterType_P) - 1 - 2) || display_data_size == 0) /* 待发送的数据超出单次允许填充的大小，发送一次数据。 */
+        if (display_data_size > (sizeof(display_data) - max_singledata_size) || display_data_size == 0) /* 待发送的数据超出单次允许填充的大小，发送一次数据。 */
         {
             if (display_data_size != 0)
             {
@@ -577,6 +583,11 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
         if (unicode_str[i] < 0x007F) /* ASCII字符 */
         {
             oem_code[0] = 5;
+            oem_code[1] = unicode_str[i];
+        }
+        if (oem_code[0] == 0 && unicode_str[i] >= 0x0080 && unicode_str[i] <= 0x00FF) /* 扩展ASCII字符 */
+        {
+            oem_code[0] = 6;
             oem_code[1] = unicode_str[i];
         }
         /* 需要注意，中文代码页里虽然有日文字符，但是字体样式和日语代码页内的不同，所以搜索顺序会在一定范影响显示效果，可以自行替换 SHIFTJIS日语 和 GB2312简体中文 的位置来查看差异 */
@@ -599,16 +610,46 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
         }
         if (oem_code[0] != 0)
         {
-            if ((oem_code[0] != current_codepage) && (oem_code[0] != 5)) /* 复制代码页切换命令，不为ASCII专门更改，使用最后所设置的值。 */
+            if ((oem_code[0] != current_codepage)) /*需要切换代码页 */
             {
-                memcpy(display_data_ptr, cmd_2ByteCharacterType_P, sizeof(cmd_2ByteCharacterType_P));
-                display_data_ptr += sizeof(cmd_2ByteCharacterType_P);
-                *display_data_ptr = oem_code[0] - 1; /* 程序判断所使用的代码页范围为1 ~ 4（5表示ASCII，无操作），屏幕使用的代码页范围为0 ~ 3，进行匹配。 */
-                display_data_ptr += 1;
-                display_data_size += sizeof(cmd_2ByteCharacterType_P) + 1;
+                if (oem_code[0] <= 5) /* 当前字符为双字节字符或标准ASCII */
+                {
+                    if (current_codepage == 6 || current_codepage == 0) /* 上一次的代码页为扩展ASCII或未设置，双字节已关闭，需要先打开双字节 */
+                    {
+                        memcpy(display_data_ptr, cmd_2ByteCharacter_P, sizeof(cmd_2ByteCharacter_P));
+                        display_data_ptr += sizeof(cmd_2ByteCharacter_P);
+                        *display_data_ptr = param_2ByteCharacter_Enable;
+                        display_data_ptr += 1;
+                        display_data_size += sizeof(cmd_2ByteCharacter_P) + 1;
+                    }
+                    if (oem_code[0] <= 4) /* 当前字符是双字节字符 */
+                    {
+                        memcpy(display_data_ptr, cmd_2ByteCharacterType_P, sizeof(cmd_2ByteCharacterType_P));
+                        display_data_ptr += sizeof(cmd_2ByteCharacterType_P);
+                        *display_data_ptr = oem_code[0] - 1; /* 程序判断所使用的代码页范围为1 ~ 4（5、6表示ASCII，不在此处理），屏幕使用的代码页范围为0 ~ 3，进行匹配。 */
+                        display_data_ptr += 1;
+                        display_data_size += sizeof(cmd_2ByteCharacterType_P) + 1;
+                    }
+                }
+                else /* 当前字符为扩展ASCII */
+                {
+                    /* 关闭双字节 */
+                    memcpy(display_data_ptr, cmd_2ByteCharacter_P, sizeof(cmd_2ByteCharacter_P));
+                    display_data_ptr += sizeof(cmd_2ByteCharacter_P);
+                    *display_data_ptr = param_2ByteCharacter_Disable;
+                    display_data_ptr += 1;
+                    display_data_size += sizeof(cmd_2ByteCharacter_P) + 1;
+
+                    /* 切换到 WPC1252 */
+                    memcpy(display_data_ptr, cmd_CharacterTableType_P, sizeof(cmd_CharacterTableType_P));
+                    display_data_ptr += sizeof(cmd_CharacterTableType_P);
+                    *display_data_ptr = 0x10; /* WPC1252 */
+                    display_data_ptr += 1;
+                    display_data_size += sizeof(cmd_CharacterTableType_P) + 1;
+                }
             }
             current_codepage = oem_code[0] & 0x00FF;
-            switch (oem_code[0]) /* 复制要显示的内容 */
+            switch (oem_code[0]) /* 复制单个字符 */
             {
             case 1: /* 双字节 */
             case 2:
@@ -620,7 +661,8 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
                 *display_data_ptr = oem_code[1] & 0x00FF;
                 display_data_ptr += 1;
                 break;
-            case 5: /* ASCII */
+            case 5: /* 标准ASCII */
+            case 6: /* 扩展ASCII */
                 if (oem_code[1] != 0x0000)
                 {
                     display_data_size += 1;
@@ -784,22 +826,29 @@ void scroll_unicode_right(uint16_t* unicode_src, uint32_t unicode_src_len, uint1
 {
     uint32_t i;
 
-    unicode_src_len -= 1;
-    unicode_dst_len -= 1;
-
-    for (i = 0; i < unicode_dst_len; i++)
+    for (i = 0; i < unicode_src_len; i++)
     {
-        if (i - scroll_len <= unicode_src_len && i >= scroll_len)
+        if (unicode_dst_len > 1)
         {
-            unicode_dst[i] = *unicode_src;
-            unicode_src += 1;
+            if (i >= scroll_len)
+            {
+                *unicode_dst = *unicode_src;
+                unicode_src += 1;
+                unicode_dst += 1;
+            }
+            else
+            {
+                *unicode_dst = ' ';
+                unicode_dst += 1;
+            }
+            unicode_dst_len -= 1;
         }
         else
         {
-            unicode_dst[i] = ' ';
+            break;
         }
     }
-    unicode_dst[unicode_dst_len] = '\0';
+    *unicode_dst = '\0';
 }
 
 /**
