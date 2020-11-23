@@ -277,7 +277,8 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                     {
                         visualisation_stream_ptr->make_fake_spectrum_absolute(spectrum_chunk, spectrum_abs_time, FFT_SIZE);
                     }
-                    memset(spectrum_char, 0x00, sizeof(spectrum_char));
+                    memset(spectrum_char, '\x9F', sizeof(spectrum_char));
+                    spectrum_char[sizeof(spectrum_char) - 1] = '\0';
                     memset(spectrum_visual_data, 0x00, sizeof(spectrum_visual_data));
                     spectrum_channels = spectrum_chunk.get_channels();
                     spectrum_srate = spectrum_chunk.get_srate();
@@ -300,27 +301,23 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                 }
                 else if (cfg_spectrum_enable_onstop != 0)
                 {
-                    // memset(spectrum_char, '\x90', sizeof(spectrum_char));
+                    memset(spectrum_char, '\x90', sizeof(spectrum_char) - 1);
                 }
             }
             if (spectrum_draw_delay - code_exec_time > 0)
             {
                 spectrum_draw_delay -= code_exec_time;
             }
-            else if (memcmp(spectrum_char, spectrum_char_disp, min(cfg_spectrum_len_x, sizeof(spectrum_char) - 1)) != 0)
+            else if (memcmp(spectrum_char, spectrum_char_disp, sizeof(spectrum_char)) != 0)
             {
                 spectrum_draw_delay = cfg_spectrum_draw_speed;
-                for (i = 0; i < min(sizeof(spectrum_char) - 1, cfg_spectrum_len_x); i++)
+                for (i = 0; i < sizeof(spectrum_char) - 1; i++)
                 {
-                    if (spectrum_char[i] > spectrum_char_disp[i] && play_info->play_state != PLAY_STATE_STOP && play_info->play_state != PLAY_STATE_LOADING)
+                    if (spectrum_char[i] > spectrum_char_disp[i])
                     {
                         spectrum_char_disp[i] += 1;
                     }
-                    else if (spectrum_char[i] < spectrum_char_disp[i] && play_info->play_state != PLAY_STATE_STOP && play_info->play_state != PLAY_STATE_LOADING)
-                    {
-                        spectrum_char_disp[i] -= 1;
-                    }
-                    else if (spectrum_char_disp[i] > '\x90' && (play_info->play_state == PLAY_STATE_STOP || play_info->play_state == PLAY_STATE_LOADING))
+                    else if (spectrum_char[i] < spectrum_char_disp[i])
                     {
                         spectrum_char_disp[i] -= 1;
                     }
@@ -710,6 +707,11 @@ void DisplayThread::on_playback_stop(play_control::t_stop_reason p_reason)
     }
 }
 
+void DisplayThread::on_playback_seek(double p_time)
+{
+    format_line2(cfg_onplay_format2);
+}
+
 void DisplayThread::on_playback_pause(bool p_state)
 {
     if (p_state == false)
@@ -742,7 +744,7 @@ void DisplayThread::on_volume_change(float p_new_val)
 
 unsigned int DisplayThread::get_flags(void)
 {
-    return ((flag_on_playback_all | flag_on_volume_change) & ~flag_on_playback_dynamic_info & ~flag_on_playback_dynamic_info_track & ~flag_on_playback_seek);
+    return ((flag_on_playback_all | flag_on_volume_change) & ~flag_on_playback_dynamic_info & ~flag_on_playback_dynamic_info_track);
 }
 
 
