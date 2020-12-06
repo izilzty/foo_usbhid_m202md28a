@@ -534,6 +534,8 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
         return -1;
     }
 
+    unicode_str_len -= 1; /* 减去结束符，方便后面计算 */
+
     fill_str_len = 0;
     if (fill != '\0' && unicode_str_len - str_start_pos < str_draw_count) /* 要填充的字符不为结束符，且待显示的字符数小于设置的最大字符数 */
     {
@@ -548,15 +550,13 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
         }
     }
 
-    unicode_str = (uint16_t*)malloc((unicode_str_len + fill_str_len) * sizeof(uint16_t)); /* 分配UNICODE字符串和填充字符空间 */
+    unicode_str = (uint16_t*)malloc((unicode_str_len + fill_str_len + 1) * sizeof(uint16_t)); /* 分配UNICODE字符串和填充字符空间 */
     if (unicode_str == NULL)
     {
         return -1;
     }
 
-    MultiByteToWideChar(CP_UTF8, 0, str, -1, unicode_str, unicode_str_len); /* UTF8转UNICODE字符串，第四个参数为-1时结束符'\0'会被复制，无需手动添加 */
-
-    unicode_str_len -= 1; /* 减去结束符，方便后面计算 */
+    MultiByteToWideChar(CP_UTF8, 0, str, -1, unicode_str, unicode_str_len + 1); /* UTF8转UNICODE字符串，第四个参数为-1时结束符'\0'会被复制，无需手动添加 */
 
     memset(display_data, 0x00, sizeof(display_data));
     display_data_ptr = display_data;
@@ -855,36 +855,34 @@ void scroll_unicode_left(uint16_t* unicode_src, uint32_t unicode_src_len, uint16
             unicode_str_pos = 0;
         }
     }
-    unicode_dst[unicode_dst_len] = '\0';
 }
 
-void scroll_unicode_right(uint16_t* unicode_src, uint32_t unicode_src_len, uint16_t* unicode_dst, uint32_t unicode_dst_len, uint32_t scroll_len)
+void scroll_unicode_right(uint16_t* unicode_src, uint32_t unicode_src_len, uint16_t* unicode_dst, uint32_t unicode_dst_len, uint32_t scroll)
 {
     uint32_t i;
 
-    for (i = 0; i < unicode_src_len; i++)
+    for (i = 0; i < unicode_dst_len; i++)
     {
-        if (unicode_dst_len > 1)
+        if (i >= scroll)
         {
-            if (i >= scroll_len)
+            if (unicode_src_len >= 1)
             {
                 *unicode_dst = *unicode_src;
                 unicode_src += 1;
                 unicode_dst += 1;
+                unicode_src_len -= 1;
             }
             else
             {
-                *unicode_dst = ' ';
-                unicode_dst += 1;
+                break;
             }
-            unicode_dst_len -= 1;
         }
         else
         {
-            break;
+            *unicode_dst = ' ';
+            unicode_dst += 1;
         }
     }
-    *unicode_dst = '\0';
 }
 
 /**
@@ -897,7 +895,7 @@ void scroll_unicode_right(uint16_t* unicode_src, uint32_t unicode_src_len, uint1
  */
 void display_scroll_utf8(const char* src_str, int16_t move_len, uint8_t display_line_len, char* dist_str, uint16_t dist_str_max_size)
 {
-    uint16_t* unicode_str;
+    uint16_t* unicode_str_src;
     uint16_t* unicode_str_dist;
     int32_t unicode_str_len;
 
@@ -906,27 +904,29 @@ void display_scroll_utf8(const char* src_str, int16_t move_len, uint8_t display_
     {
         return;
     }
-    unicode_str = (uint16_t*)malloc(unicode_str_len * sizeof(uint16_t));       /* 分配UNICODE字符串空间 */
-    unicode_str_dist = (uint16_t*)malloc(display_line_len * sizeof(uint16_t)); /* 分配UNICODE字符串空间 */
-    if (unicode_str == NULL || unicode_str_dist == NULL)
+    unicode_str_src = (uint16_t*)malloc(unicode_str_len * sizeof(uint16_t));       /* 分配UNICODE字符串空间 */
+    unicode_str_dist = (uint16_t*)malloc((display_line_len + 1) * sizeof(uint16_t)); /* 分配UNICODE字符串空间 */
+    if (unicode_str_src == NULL || unicode_str_dist == NULL)
     {
         return;
     }
-    MultiByteToWideChar(CP_UTF8, 0, src_str, -1, unicode_str, unicode_str_len); /* UTF8转UNICODE字符串，第四个参数为-1时结束符'\0'会被复制，无需手动添加 */
+    memset(unicode_str_dist, '\0', (display_line_len + 1) * sizeof(uint16_t));
+    MultiByteToWideChar(CP_UTF8, 0, src_str, -1, unicode_str_src, unicode_str_len); /* UTF8转UNICODE字符串，第四个参数为-1时结束符'\0'会被复制，无需手动添加 */
+
+    unicode_str_len -= 1;
 
     if (move_len < 0)
     {
-        scroll_unicode_left(unicode_str, unicode_str_len, unicode_str_dist, display_line_len, -move_len);
+        scroll_unicode_left(unicode_str_src, unicode_str_len, unicode_str_dist, display_line_len, -move_len);
     }
     else
     {
-        scroll_unicode_right(unicode_str, unicode_str_len, unicode_str_dist, display_line_len, move_len);
+        scroll_unicode_right(unicode_str_src, unicode_str_len, unicode_str_dist, display_line_len, move_len);
     }
 
     WideCharToMultiByte(CP_UTF8, 0, unicode_str_dist, -1, dist_str, dist_str_max_size, NULL, NULL);
-    //dist_str[dist_str_max_size - 1] = '\0';
 
-    free(unicode_str);
+    free(unicode_str_src);
     free(unicode_str_dist);
 }
 

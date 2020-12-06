@@ -192,7 +192,7 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
                     continue;
                 }
             }
-            display_scroll_utf8(play_info->str_line_1, scroll_pos, SCROLL_LINE1_SIZE + 1, scroll_str, sizeof(scroll_str));
+            display_scroll_utf8(play_info->str_line_1, scroll_pos, SCROLL_LINE1_SIZE, scroll_str, sizeof(scroll_str));
             strncpy_s(line1_str, scroll_str, sizeof(line1_str));
             update_line1 = true;
             scroll_pos -= 1;
