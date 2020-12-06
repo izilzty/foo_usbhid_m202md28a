@@ -170,9 +170,9 @@ DWORD WINAPI main_display_thread(LPVOID lpParamter)
             }
             else /* scroll_pos < 0 */
             {
-                if (display_get_utf8_len(play_info->str_line_1, 0) > SCROLL_LINE1_SIZE)
+                if (display_get_utf8_len(play_info->str_line_1, ' ') > SCROLL_LINE1_SIZE)
                 {
-                    if (cfg_scroll_speed == 0 && (-scroll_pos % (display_get_utf8_len(play_info->str_line_1, 1) + 1)) == 0)
+                    if (cfg_scroll_speed == 0 && (-scroll_pos % (display_get_utf8_len(play_info->str_line_1, '\0') + 1)) == 0)
                     {
                         scroll_delay_count = -1;
                         continue;

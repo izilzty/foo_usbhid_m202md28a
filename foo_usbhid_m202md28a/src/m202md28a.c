@@ -28,6 +28,7 @@ void display_deinit(hid_device* device)
     {
         return;
     }
+
     hid_close(device);
     device = NULL;
 }
@@ -41,8 +42,8 @@ void display_deinit(hid_device* device)
  */
 int8_t display_send_data(hid_device* device, const uint8_t* data, uint16_t data_size)
 {
-    uint8_t usb_send_data[1 + 64]; /* 一位HID Report ID + HID单次发送的数据 */
-    uint8_t screen_max_data_size;
+    uint8_t usb_send_data[1 + 64]; /* 一位HID Report ID + HID单次允许发送的数据 */
+    uint8_t allow_data_size;
     uint16_t loop_count;
     uint16_t i;
 
@@ -51,24 +52,24 @@ int8_t display_send_data(hid_device* device, const uint8_t* data, uint16_t data_
         return -1;
     }
 
-    screen_max_data_size = sizeof(usb_send_data) - 2; /* 屏幕一次可接受的纯数据大小 */
-    loop_count = data_size / screen_max_data_size;    /* 发送全部数据所需循环次数 */
+    allow_data_size = sizeof(usb_send_data) - 2; /* 屏幕一次可接受的纯数据大小，不包括最开始的一位数据大小位以及HID Report ID */
+    loop_count = data_size / allow_data_size;    /* 发送全部数据所需循环次数 */
 
-    for (i = 0; i < loop_count; i++)
+    for (i = 0; i < loop_count; i++) /* 如果要发送的数据比单次可接受的数据大，循环发送 */
     {
         memset(usb_send_data, 0x00, sizeof(usb_send_data));
         usb_send_data[0] = DISPLAY_HID_REPORT_ID;
-        usb_send_data[1] = screen_max_data_size;
-        memcpy(usb_send_data + 2, data, screen_max_data_size);
-        data += screen_max_data_size;
-        data_size -= screen_max_data_size;
+        usb_send_data[1] = allow_data_size;
+        memcpy(usb_send_data + 2, data, allow_data_size);
+        data += allow_data_size;
+        data_size -= allow_data_size;
         if (hid_write(device, usb_send_data, sizeof(usb_send_data)) < sizeof(usb_send_data))
         {
             return -1;
         }
     }
 
-    if (data_size > 0)
+    if (data_size > 0) /* 发送剩余数据 */
     {
         memset(usb_send_data, 0x00, sizeof(usb_send_data));
         usb_send_data[0] = DISPLAY_HID_REPORT_ID;
@@ -88,18 +89,23 @@ int8_t display_send_data(hid_device* device, const uint8_t* data, uint16_t data_
  * @param  device HID设备。
  * @param  cmd 要发送的命令指针。
  * @param  cmd_size 要发送的命令大小。
- * @param  param_size 要发送的参数个数。
+ * @param  param_num 要发送的参数个数。
  * @param  ... 要发送的参数。
  * @return 0=成功，-1=失败。
  */
-int8_t display_send_cmd(hid_device* device, const uint8_t* cmd, uint8_t cmd_size, uint8_t param_size, ...)
+int8_t display_send_cmd(hid_device* device, const uint8_t* cmd, uint8_t cmd_size, uint8_t param_num, ...)
 {
     uint8_t cmd_data[63];
     uint8_t cmd_data_size;
     uint16_t i;
     va_list valist;
 
-    if ((device == NULL) || ((cmd_size + param_size) > sizeof(cmd_data)))
+    if (device == NULL)
+    {
+        return -1;
+    }
+
+    if (cmd_size + param_num > sizeof(cmd_data)) /* 限制命令和数据的大小不超过临时空间大小 */
     {
         return -1;
     }
@@ -107,18 +113,18 @@ int8_t display_send_cmd(hid_device* device, const uint8_t* cmd, uint8_t cmd_size
     memset(cmd_data, 0x00, sizeof(cmd_data));
     cmd_data_size = 0;
 
-    memcpy(cmd_data + cmd_data_size, cmd, cmd_size);
+    memcpy(cmd_data + cmd_data_size, cmd, cmd_size); /* 填充命令 */
     cmd_data_size += cmd_size;
 
-    va_start(valist, param_size);
-    for (i = 0; i < param_size; i++)
+    va_start(valist, param_num);
+    for (i = 0; i < param_num; i++) /* 填充参数 */
     {
         cmd_data[cmd_data_size] = (uint8_t)va_arg(valist, int);
         cmd_data_size += 1;
     }
     va_end(valist);
 
-    if (display_send_data(device, cmd_data, cmd_data_size) != 0)
+    if (display_send_data(device, cmd_data, cmd_data_size) != 0) /* 发送命令 */
     {
         return -1;
     }
@@ -135,10 +141,15 @@ uint8_t display_read_state(hid_device* device)
 {
     uint8_t usb_send_data[8];
 
-    memset(usb_send_data, 0xFF, sizeof(usb_send_data));
-    hid_read_timeout(device, usb_send_data, sizeof(usb_send_data), 5000);
+    if (device == NULL)
+    {
+        return -1;
+    }
 
-    return usb_send_data[4];
+    memset(usb_send_data, 0xFF, sizeof(usb_send_data));
+    hid_read_timeout(device, usb_send_data, sizeof(usb_send_data), 5000); /* 超时时间5000毫秒 */
+
+    return usb_send_data[4]; /* 返回数据 */
 }
 
 /**
@@ -171,7 +182,7 @@ int8_t display_load_default_setting(hid_device* device)
         return -1;
     }
 
-    return ret;
+    return 0;
 }
 
 /**
@@ -181,28 +192,34 @@ int8_t display_load_default_setting(hid_device* device)
  */
 int8_t display_reset_FROM(hid_device* device)
 {
-    display_send_cmd(device, cmd_InitializeDisplay, sizeof(cmd_InitializeDisplay), 0);
-    display_load_default_setting(device);
+    if (device == NULL)
+    {
+        return -1;
+    }
 
-    display_send_cmd(device, cmd_UserSetUpModeStart, sizeof(cmd_UserSetUpModeStart), 0);
+    display_send_cmd(device, cmd_InitializeDisplay, sizeof(cmd_InitializeDisplay), 0); /* 初始化显示，初始化完成后用户字体将暂时不可用，其他所有设置从FROM内读取 */
+
+    display_load_default_setting(device); /* 加载默认设置 */
+
+    display_send_cmd(device, cmd_UserSetUpModeStart, sizeof(cmd_UserSetUpModeStart), 0); /* 进入用户设置模式 */
     if (display_read_state(device) != 0x00)
     {
         return -1;
     }
 
-    display_send_cmd(device, cmd_UserFontDeletAll, sizeof(cmd_UserFontDeletAll), 0);
+    display_send_cmd(device, cmd_UserFontDeletAll, sizeof(cmd_UserFontDeletAll), 0); /* 删除全部用户字体 */
     if (display_read_state(device) != 0x00)
     {
         return -1;
     }
 
-    display_send_cmd(device, cmd_UserTableDeletAll, sizeof(cmd_UserTableDeletAll), 0);
+    display_send_cmd(device, cmd_UserTableDeletAll, sizeof(cmd_UserTableDeletAll), 0); /* 删除全部字体表 */
     if (display_read_state(device) != 0x00)
     {
         return -1;
     }
 
-    display_send_cmd(device, cmd_UserSetUpModeEnd, sizeof(cmd_UserSetUpModeEnd), 0);
+    display_send_cmd(device, cmd_UserSetUpModeEnd, sizeof(cmd_UserSetUpModeEnd), 0); /* 退出用户设置模式，屏幕自动保存设置并重新启动 */
 
     return 0;
 }
@@ -217,22 +234,28 @@ int8_t display_write_FROM(hid_device* device)
     uint8_t from_data[3846];
     uint8_t* from_data_ptr;
 
-    display_send_cmd(device, cmd_InitializeDisplay, sizeof(cmd_InitializeDisplay), 0);
-    display_load_default_setting(device);
+    if (device == NULL)
+    {
+        return -1;
+    }
 
-    display_send_cmd(device, cmd_UserSetUpModeStart, sizeof(cmd_UserSetUpModeStart), 0);
+    display_send_cmd(device, cmd_InitializeDisplay, sizeof(cmd_InitializeDisplay), 0); /* 初始化显示，初始化完成后用户字体将暂时不可用，其他所有设置从FROM内读取 */
+
+    display_load_default_setting(device); /* 加载默认设置，防止后面保存了错误的初始设置 */
+
+    display_send_cmd(device, cmd_UserSetUpModeStart, sizeof(cmd_UserSetUpModeStart), 0); /* 进入用户设置模式 */
     if (display_read_state(device) != 0x00)
     {
         return -1;
     }
 
-    display_send_cmd(device, cmd_UserFontDeletAll, sizeof(cmd_UserFontDeletAll), 0);
+    display_send_cmd(device, cmd_UserFontDeletAll, sizeof(cmd_UserFontDeletAll), 0); /* 删除全部用户字体 */
     if (display_read_state(device) != 0x00)
     {
         return -1;
     }
 
-    display_send_cmd(device, cmd_UserTableDeletAll, sizeof(cmd_UserTableDeletAll), 0);
+    display_send_cmd(device, cmd_UserTableDeletAll, sizeof(cmd_UserTableDeletAll), 0); /* 删除全部字体表 */
     if (display_read_state(device) != 0x00)
     {
         return -1;
@@ -241,9 +264,11 @@ int8_t display_write_FROM(hid_device* device)
     from_data_ptr = from_data;
     memset(from_data_ptr, 0xFF, sizeof(from_data));
 
-    memcpy(from_data_ptr, cmd_UserTableRegistAll, sizeof(cmd_UserTableRegistAll));
+    memcpy(from_data_ptr, cmd_UserTableRegistAll, sizeof(cmd_UserTableRegistAll)); /* 填充写入字体表命令 */
     from_data_ptr += sizeof(cmd_UserTableRegistAll);
 
+    /* 因为字体表需要一次设置全部，所以预先整理 */
+    /* 填充播放图标数据 */
     memcpy(from_data_ptr, FROM_icon_stop, sizeof(FROM_icon_stop)); /* 0x80 */
     from_data_ptr += sizeof(FROM_icon_stop);
     memcpy(from_data_ptr, FROM_icon_play, sizeof(FROM_icon_play)); /* 0x81 */
@@ -253,17 +278,18 @@ int8_t display_write_FROM(hid_device* device)
     memcpy(from_data_ptr, FROM_icon_load, sizeof(FROM_icon_load)); /* 0x83 */
     from_data_ptr += sizeof(FROM_icon_load);
 
+    /* 填充频谱图标数据 */
     from_data_ptr += 12 * (15 * 16 / 8);
     memcpy(from_data_ptr, FROM_icon_bar, sizeof(FROM_icon_bar)); /* 0x90 ~ 0x9F */
     from_data_ptr += sizeof(FROM_icon_bar);
 
-    display_send_data(device, from_data, sizeof(from_data));
+    display_send_data(device, from_data, sizeof(from_data)); /* 发送字体表数据 */
     if (display_read_state(device) != 0x00)
     {
         return -1;
     }
 
-    display_send_cmd(device, cmd_UserSetUpModeEnd, sizeof(cmd_UserSetUpModeEnd), 0);
+    display_send_cmd(device, cmd_UserSetUpModeEnd, sizeof(cmd_UserSetUpModeEnd), 0); /* 退出用户设置模式，屏幕自动保存设置并重新启动 */
 
     return 0;
 }
@@ -290,6 +316,7 @@ int8_t display_set_dim(hid_device* device, uint8_t level)
     {
         return -1;
     }
+
     return 0;
 }
 
@@ -315,6 +342,7 @@ int8_t display_set_power(hid_device* device, uint8_t power)
     {
         return -1;
     }
+
     return 0;
 }
 
@@ -339,8 +367,9 @@ int8_t display_clear_screen(hid_device* device)
 }
 
 /**
- * @brief  清空单行显示。
+ * @brief  清空一行显示，清空后光标回到该行最左侧。
  * @param  device HID设备。
+ * @param  line 要清除的行号，从0开始
  * @return 0=成功，-1=失败。
  */
 int8_t display_clear_line(hid_device* device, uint8_t line)
@@ -438,12 +467,12 @@ int8_t display_set_cp_user(hid_device* device)
     return 0;
 }
 
-static int8_t search_codepage(const uint16_t* codepage, uint32_t codepage_byte_size, uint8_t codepage_id, uint16_t unicode, uint16_t* oem_code)
+static int8_t search_codepage(const uint16_t* codepage, uint32_t codepage_size, uint8_t codepage_id, uint16_t unicode, uint16_t* oem_code)
 {
     uint32_t i;
 
-    codepage_byte_size /= sizeof(uint16_t);
-    for (i = 0; i < codepage_byte_size; i += 2)
+    codepage_size /= sizeof(uint16_t);
+    for (i = 0; i < codepage_size; i += 2)
     {
         if (codepage[i] == unicode)
         {
@@ -452,6 +481,7 @@ static int8_t search_codepage(const uint16_t* codepage, uint32_t codepage_byte_s
             return 0;
         }
     }
+
     return -1;
 }
 
@@ -504,6 +534,30 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
         return -1;
     }
 
+    fill_str_len = 0;
+    if (fill != '\0' && unicode_str_len - str_start_pos < str_draw_count) /* 要填充的字符不为结束符，且待显示的字符数小于设置的最大字符数 */
+    {
+        if (unicode_str_len - str_start_pos <= 0) /* 没有待显示字符被发送，全部显示填充字符 */
+        {
+            fill_str_len = str_draw_count;
+            str_start_pos = 0;
+        }
+        else /* 将剩余空间填充为指定字符 */
+        {
+            fill_str_len = str_draw_count - unicode_str_len - str_start_pos;
+        }
+    }
+
+    unicode_str = (uint16_t*)malloc((unicode_str_len + fill_str_len) * sizeof(uint16_t)); /* 分配UNICODE字符串和填充字符空间 */
+    if (unicode_str == NULL)
+    {
+        return -1;
+    }
+
+    MultiByteToWideChar(CP_UTF8, 0, str, -1, unicode_str, unicode_str_len); /* UTF8转UNICODE字符串，第四个参数为-1时结束符'\0'会被复制，无需手动添加 */
+
+    unicode_str_len -= 1; /* 减去结束符，方便后面计算 */
+
     memset(display_data, 0x00, sizeof(display_data));
     display_data_ptr = display_data;
     display_data_size = 0;
@@ -518,7 +572,6 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
     display_data_ptr += 1;
     display_data_size += 1;
 
-    fill_str_len = 0;
     if (str_start_pos < 0)
     {
         str_start_pos = 0;
@@ -527,38 +580,23 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
     {
         str_draw_count = 40;
     }
-    if (fill != '\0' && unicode_str_len - 1 - str_start_pos < str_draw_count)
-    {
-        if (unicode_str_len - 1 - str_start_pos <= 0)
-        {
-            fill_str_len = str_draw_count;
-            str_start_pos = 0;
-        }
-        else
-        {
-            fill_str_len = str_draw_count - (unicode_str_len - 1 - str_start_pos);
-        }
-    }
-    unicode_str = (uint16_t*)malloc((unicode_str_len + fill_str_len) * sizeof(uint16_t)); /* 分配UNICODE字符串空间 */
-    if (unicode_str == NULL)
-    {
-        return -1;
-    }
-    MultiByteToWideChar(CP_UTF8, 0, str, -1, unicode_str, unicode_str_len); /* UTF8转UNICODE字符串，第四个参数为-1时结束符'\0'会被复制，无需手动添加 */
-    if (fill_str_len > 0)
+
+    if (fill_str_len > 0) /* 填充要填充的字符 */
     {
         for (i = 0; i < fill_str_len; i++)
         {
-            unicode_str[unicode_str_len - 1 + i] = fill;
+            unicode_str[unicode_str_len + i] = fill;
         }
-        unicode_str[unicode_str_len - 1 + fill_str_len] = '\0';
+        unicode_str[unicode_str_len + fill_str_len] = '\0';
         unicode_str_len += fill_str_len;
     }
 
+    /* 确定单次循环所需的最大数据大小 */
     max_singledata_size = sizeof(cmd_2ByteCharacter_P) + 1 + 2;
     max_singledata_size = max(max_singledata_size + (sizeof(cmd_CharacterTableType_P) + 1), max_singledata_size + (sizeof(cmd_2ByteCharacterType_P) + 1));
+
     current_codepage = 0;
-    for (i = 0; i < unicode_str_len - 1; i++) /* 因为屏幕的中日韩代码页是分开的，所以需要确认每个字符并切换到相应的代码页 */
+    for (i = 0; i < unicode_str_len; i++) /* 因为屏幕的中日韩代码页是分开的，所以需要确认每个字符并切换到相应的代码页 */
     {
         if (i < str_start_pos || i >= (str_start_pos + str_draw_count)) /* 限制显示起始字符和最大显示长度 */
         {
@@ -706,7 +744,7 @@ int8_t display_draw_ascii(hid_device* device, uint8_t x, uint8_t y, uint8_t str_
 {
     int32_t i;
     int32_t str_len;
-    uint8_t display_data[44]; /* 一次处理的数据量，大于等于一屏要发送的数据即可 */
+    uint8_t display_data[44]; /* 因为ASCII单个字符只需要一个字节即可，所以设置为大于等于一屏要发送的数据 */
     uint8_t* display_data_ptr;
     uint16_t display_data_size;
     uint8_t fill_str_len;
@@ -721,10 +759,10 @@ int8_t display_draw_ascii(hid_device* device, uint8_t x, uint8_t y, uint8_t str_
         return 0;
     }
 
-    str_len = strlen(str) + 1; /* 获取全部字符数量，不包括结束符'\0'，手动加1 */
-    if (str_len < 0)
+    str_len = strlen(str); /* 获取全部字符数量，不包括结束符'\0' */
+    if (str_len <= 0)
     {
-        return -1;
+        return 0;
     }
 
     memset(display_data, 0x00, sizeof(display_data));
@@ -743,7 +781,6 @@ int8_t display_draw_ascii(hid_device* device, uint8_t x, uint8_t y, uint8_t str_
     display_data_ptr += 1;
     display_data_size += 1;
 
-    fill_str_len = 0;
     if (str_start_pos < 0)
     {
         str_start_pos = 0;
@@ -752,20 +789,22 @@ int8_t display_draw_ascii(hid_device* device, uint8_t x, uint8_t y, uint8_t str_
     {
         str_draw_count = 40;
     }
-    if (fill != '\0' && str_len - 1 - str_start_pos < str_draw_count)
+
+    fill_str_len = 0;
+    if (fill != '\0' && str_len - str_start_pos < str_draw_count)
     {
-        if (str_len - 1 - str_start_pos <= 0)
+        if (str_len - str_start_pos <= 0)
         {
             fill_str_len = str_draw_count;
             str_start_pos = 0;
         }
         else
         {
-            fill_str_len = str_draw_count - (str_len - 1 - str_start_pos);
+            fill_str_len = str_draw_count - (str_len - str_start_pos);
         }
     }
 
-    for (i = 0; i < str_len + fill_str_len - 1; i++) /* 填充字符 */
+    for (i = 0; i < str_len + fill_str_len; i++) /* 填充待显示字符 */
     {
         if (i < str_start_pos || i >= (str_start_pos + str_draw_count)) /* 限制显示起始字符和最大显示长度 */
         {
@@ -773,8 +812,7 @@ int8_t display_draw_ascii(hid_device* device, uint8_t x, uint8_t y, uint8_t str_
         }
         if (display_data_size < sizeof(display_data))
         {
-            display_data_size += 1;
-            if (i < str_len - 1)
+            if (i < str_len)
             {
                 *display_data_ptr = str[i];
             }
@@ -782,6 +820,7 @@ int8_t display_draw_ascii(hid_device* device, uint8_t x, uint8_t y, uint8_t str_
             {
                 *display_data_ptr = fill;
             }
+            display_data_size += 1;
             display_data_ptr += 1;
         }
         else
@@ -804,9 +843,6 @@ void scroll_unicode_left(uint16_t* unicode_src, uint32_t unicode_src_len, uint16
 {
     uint32_t i;
     uint32_t unicode_str_pos;
-
-    unicode_src_len -= 1;
-    unicode_dst_len -= 1;
 
     unicode_str_pos = scroll_len % unicode_src_len;
 
@@ -895,12 +931,12 @@ void display_scroll_utf8(const char* src_str, int16_t move_len, uint8_t display_
 }
 
 /**
- * @brief  获取UTF8字符串长度，可选忽略结尾的空格。
+ * @brief  获取UTF8字符串长度，可选忽略结尾的指定ASCII字符。
  * @param  src_str UTF8字符串。
- * @param  with_space 0：不计算结尾的空格，1：计算结尾的空格。
+ * @param  ignore 要忽略的结尾ASCII字符，传入结束符则不忽略。
  * @return 字符串长度，不包括结束符'\0'。
  */
-uint32_t display_get_utf8_len(const char* src_str, uint8_t with_space)
+uint32_t display_get_utf8_len(const char* src_str, char ignore)
 {
     int32_t i;
     uint16_t* unicode_str;
@@ -920,9 +956,9 @@ uint32_t display_get_utf8_len(const char* src_str, uint8_t with_space)
 
     for (i = unicode_str_len - 1; i > 0; i--)
     {
-        if (with_space == 0)
+        if (ignore != '\0')
         {
-            if (unicode_str[i] == ' ' || unicode_str[i] == '\0')
+            if (unicode_str[i] == ignore || unicode_str[i] == '\0')
             {
                 unicode_str_len -= 1;
             }
@@ -937,7 +973,6 @@ uint32_t display_get_utf8_len(const char* src_str, uint8_t with_space)
             break;
         }
     }
-
     free(unicode_str);
 
     return (uint32_t)unicode_str_len;

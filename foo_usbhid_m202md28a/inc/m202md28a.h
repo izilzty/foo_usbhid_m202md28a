@@ -86,7 +86,7 @@ extern "C"
     int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_start_pos, uint8_t str_draw_count, char fill, const char* str);
     int8_t display_draw_ascii(hid_device* device, uint8_t x, uint8_t y, uint8_t str_start_pos, uint8_t str_draw_count, char fill, const char* str);
     void display_scroll_utf8(const char* src_str, int16_t move_len, uint8_t display_line_len, char* dist_str, uint16_t dist_str_max_size);
-    uint32_t display_get_utf8_len(const char* src_str, uint8_t with_space);
+    uint32_t display_get_utf8_len(const char* src_str, char ignore);
 
     /* Í£Ö¹Í¼±ê */
     static const uint8_t FROM_icon_stop[] = {
