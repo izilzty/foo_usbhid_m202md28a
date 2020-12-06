@@ -39,6 +39,7 @@ public:
 		else
 		{
 			console::info("HID VFD - No HID device found");
+			console::info("HID VFD - Thread stop");
 		}
 	}
 	void on_quit()
