@@ -110,7 +110,7 @@ int8_t display_send_cmd(hid_device* device, const uint8_t* cmd, uint8_t cmd_size
         return -1;
     }
 
-    memset(cmd_data, 0x00, sizeof(cmd_data));
+    // memset(cmd_data, 0x00, sizeof(cmd_data));
     cmd_data_size = 0;
 
     memcpy(cmd_data + cmd_data_size, cmd, cmd_size); /* 填充命令 */
@@ -558,7 +558,7 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
 
     MultiByteToWideChar(CP_UTF8, 0, str, -1, unicode_str, unicode_str_len + 1); /* UTF8转UNICODE字符串，第四个参数为-1时结束符'\0'会被复制，无需手动添加 */
 
-    memset(display_data, 0x00, sizeof(display_data));
+    // memset(display_data, 0x00, sizeof(display_data));
     display_data_ptr = display_data;
     display_data_size = 0;
 
@@ -612,7 +612,7 @@ int8_t display_draw_utf8(hid_device* device, uint8_t x, uint8_t y, uint8_t str_s
                     return -1;
                 }
             }
-            memset(display_data, 0x00, sizeof(display_data)); /* 初始化待发送数据 */
+            // memset(display_data, 0x00, sizeof(display_data)); /* 初始化待发送数据 */
             display_data_ptr = display_data;
             display_data_size = 0;
         }
@@ -765,7 +765,7 @@ int8_t display_draw_ascii(hid_device* device, uint8_t x, uint8_t y, uint8_t str_
         return 0;
     }
 
-    memset(display_data, 0x00, sizeof(display_data));
+    // memset(display_data, 0x00, sizeof(display_data));
     display_data_ptr = display_data;
     display_data_size = 0;
 
